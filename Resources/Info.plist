@@ -10,6 +10,8 @@
     </array>
     <key>CFBundleAllowMixedLocalizations</key>
     <true/>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>CFBundleName</key>
     <string>LidShot</string>
     <key>CFBundleDisplayName</key>
