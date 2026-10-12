@@ -13,7 +13,7 @@ Requires the Xcode Command Line Tools, macOS 13 or later.
 
 ## Closed-lid mode
 
-- **⌥⇧L** or the menu toggles it. It runs `pmset -a disablesleep 1` and holds an idle-sleep assertion.
+- **⌥⇧L** (configurable) or the menu toggles it. It runs `pmset -a disablesleep 1` and holds an idle-sleep assertion.
 - **Enable Password-Free Toggle…** installs `/etc/sudoers.d/lidshot`. That file lets your user run only
   `pmset -a disablesleep 0|1` without a password. Timers and the battery auto-off need it, because
   nobody can type a password while the lid is closed.
@@ -21,11 +21,12 @@ Requires the Xcode Command Line Tools, macOS 13 or later.
 
 ## Screenshots
 
-- **⌥⇧4**: capture an area. Press Space to switch to window capture.
-- **⌥⇧3**: capture the main screen. A 5-second timed capture is also in the menu.
+- **⌥⇧4** captures an area. Press Space to switch to window capture.
+- **Горячие клавиши…** in the menu lets you rebind both shortcuts (area capture and closed-lid mode), or
+  turn either one off.
 - Tools (key in brackets): Select (V), Arrow (A), Line (L), Rectangle (R), Ellipse (O), Pen (P),
   Highlighter (H), Text (T), Step number (N), Pixelate (B), Crop (C).
 - Hold Shift to snap lines to 45° and draw squares or circles. Changing the colour or width restyles the
   selected shape. Double-click text to edit it. Delete removes the selected shape.
-- Return copies the image and closes the window. ⌘C copies, ⌘S saves to the save folder,
-  ⇧⌘S opens Save As, and ⌘Z / ⇧⌘Z undo and redo.
+- Return copies the image and closes the window. ⌘C copies, ⌘S saves to a file (the last folder is
+  remembered), and ⌘Z / ⇧⌘Z undo and redo.

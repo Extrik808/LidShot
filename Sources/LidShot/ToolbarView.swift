@@ -59,7 +59,7 @@ struct ToolbarView: View {
             Button { canvas.redo(nil) } label: { Image(systemName: "arrow.uturn.forward") }
                 .help("Повторить (⇧⌘Z)")
             Button("Сохранить") { canvas.saveImage(nil) }
-                .help("Сохранить в папку снимков (⌘S), «Сохранить как»: ⇧⌘S")
+                .help("Сохранить в файл (⌘S)")
             Button("Копировать") { canvas.copy(nil) }
                 .help("Скопировать в буфер (⌘C)")
             Button("Готово") { canvas.finish() }

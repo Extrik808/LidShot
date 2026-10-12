@@ -1,26 +1,13 @@
 import AppKit
 
-enum CaptureMode {
-    case area
-    case screen
-    case timed
-}
-
 enum Capture {
-    static func take(_ mode: CaptureMode, completion: @escaping (NSImage) -> Void) {
+    static func area(completion: @escaping (NSImage) -> Void) {
         guard ensurePermission() else { return }
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("lidshot-\(UUID().uuidString).png")
-        var args = ["-x"]
-        switch mode {
-        case .area: args.append("-i")
-        case .screen: args.append("-m")
-        case .timed: args += ["-m", "-T", "5"]
-        }
-        args.append(url.path)
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-        process.arguments = args
+        process.arguments = ["-x", "-i", url.path]
         process.terminationHandler = { _ in
             DispatchQueue.main.async {
                 defer { try? FileManager.default.removeItem(at: url) }

@@ -1,12 +1,12 @@
 import AppKit
-import Carbon
 import ServiceManagement
-import UniformTypeIdentifiers
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
     private let lid = LidController()
     private var editors: [EditorWindowController] = []
+    private let hotKeySettings = HotKeySettings()
+    private var hotKeyWindow: HotKeySettingsWindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = Self.makeMainMenu()
@@ -20,10 +20,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         lid.syncWithSystem()
         updateIcon()
 
-        let optionShift = optionKey | shiftKey
-        HotKeyCenter.shared.register(keyCode: kVK_ANSI_4, modifiers: optionShift) { [weak self] in self?.captureArea() }
-        HotKeyCenter.shared.register(keyCode: kVK_ANSI_3, modifiers: optionShift) { [weak self] in self?.captureScreen() }
-        HotKeyCenter.shared.register(keyCode: kVK_ANSI_L, modifiers: optionShift) { [weak self] in self?.toggleLid() }
+        hotKeySettings.onSuspend = { HotKeyCenter.shared.unregisterAll() }
+        hotKeySettings.onResume = { [weak self] in self?.registerHotKeys() ?? [] }
+        let failed = registerHotKeys()
+        if !failed.isEmpty {
+            showHotKeys()
+        }
 
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.willPowerOffNotification,
@@ -34,6 +36,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         lid.disable()
+    }
+
+    @discardableResult
+    private func registerHotKeys() -> Set<HotKeyAction> {
+        HotKeyCenter.shared.unregisterAll()
+        var failed: Set<HotKeyAction> = []
+        for action in HotKeyAction.allCases {
+            guard let hotKey = action.hotKey else { continue }
+            let registered = HotKeyCenter.shared.register(hotKey) { [weak self] in self?.perform(action) }
+            if !registered {
+                failed.insert(action)
+            }
+        }
+        return failed
+    }
+
+    private func perform(_ action: HotKeyAction) {
+        switch action {
+        case .captureArea: captureArea()
+        case .toggleLid: toggleLid()
+        }
     }
 
     private func updateIcon() {
@@ -52,9 +75,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(header)
 
         if lid.isOn {
-            menu.addItem(item("Выключить режим закрытой крышки", #selector(toggleLid), key: "l", modifiers: [.option, .shift]))
+            menu.addItem(item("Выключить режим закрытой крышки", #selector(toggleLid), hotKey: HotKeyAction.toggleLid.hotKey))
         } else {
-            menu.addItem(item("Не спать с закрытой крышкой", #selector(toggleLid), key: "l", modifiers: [.option, .shift]))
+            menu.addItem(item("Не спать с закрытой крышкой", #selector(toggleLid), hotKey: HotKeyAction.toggleLid.hotKey))
             let timed = NSMenuItem(title: "Не спать в течение", action: nil, keyEquivalent: "")
             let submenu = NSMenu()
             for (title, minutes) in [("30 минут", 30), ("1 час", 60), ("2 часа", 120), ("4 часа", 240), ("8 часов", 480)] {
@@ -84,18 +107,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ))
 
         menu.addItem(.separator())
-        menu.addItem(item("Снимок области / окна", #selector(captureArea), key: "4", modifiers: [.option, .shift]))
-        menu.addItem(item("Снимок экрана", #selector(captureScreen), key: "3", modifiers: [.option, .shift]))
-        menu.addItem(item("Снимок экрана через 5 секунд", #selector(captureTimed)))
-        menu.addItem(item("Редактировать картинку из буфера", #selector(annotateClipboard)))
-        menu.addItem(item("Открыть изображение…", #selector(openImage)))
-        menu.addItem(item("Папка для снимков: \(Settings.saveDirectory.lastPathComponent)…", #selector(chooseSaveFolder)))
+        menu.addItem(item("Снимок области", #selector(captureArea), hotKey: HotKeyAction.captureArea.hotKey))
+        menu.addItem(item("Горячие клавиши…", #selector(showHotKeys)))
 
         menu.addItem(.separator())
         let login = item("Запускать при входе", #selector(toggleLaunchAtLogin))
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(login)
         menu.addItem(item("Выйти из LidShot", #selector(quit), key: "q", modifiers: [.command]))
+    }
+
+    private func item(_ title: String, _ action: Selector, hotKey: HotKey?) -> NSMenuItem {
+        item(title, action, key: hotKey?.menuKeyEquivalent ?? "", modifiers: hotKey?.menuModifiers ?? [])
     }
 
     private func item(_ title: String, _ action: Selector, key: String = "", modifiers: NSEvent.ModifierFlags = []) -> NSMenuItem {
@@ -129,46 +152,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func captureArea() {
-        Capture.take(.area) { [weak self] image in self?.openEditor(image) }
+        Capture.area { [weak self] image in self?.openEditor(image) }
     }
 
-    @objc private func captureScreen() {
-        Capture.take(.screen) { [weak self] image in self?.openEditor(image) }
-    }
-
-    @objc private func captureTimed() {
-        Capture.take(.timed) { [weak self] image in self?.openEditor(image) }
-    }
-
-    @objc private func annotateClipboard() {
-        guard let image = NSImage(pasteboard: .general) else {
-            NSSound.beep()
-            return
+    @objc private func showHotKeys() {
+        if hotKeyWindow == nil {
+            hotKeyWindow = HotKeySettingsWindowController(settings: hotKeySettings)
         }
-        openEditor(image)
-    }
-
-    @objc private func openImage() {
-        NSApp.activate(ignoringOtherApps: true)
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.image]
-        panel.allowsMultipleSelection = false
-        guard panel.runModal() == .OK, let url = panel.url,
-              let data = try? Data(contentsOf: url), let image = NSImage(data: data) else { return }
-        openEditor(image)
-    }
-
-    @objc private func chooseSaveFolder() {
-        NSApp.activate(ignoringOtherApps: true)
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.canCreateDirectories = true
-        panel.directoryURL = Settings.saveDirectory
-        panel.prompt = "Выбрать"
-        if panel.runModal() == .OK, let url = panel.url {
-            Settings.saveDirectory = url
-        }
+        hotKeyWindow?.present()
     }
 
     @objc private func toggleLaunchAtLogin() {
@@ -205,9 +196,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         main.addItem(submenuItem(appMenu))
 
         let fileMenu = NSMenu(title: "Файл")
-        fileMenu.addItem(withTitle: "Сохранить", action: #selector(CanvasView.saveImage(_:)), keyEquivalent: "s")
-        let saveAs = fileMenu.addItem(withTitle: "Сохранить как…", action: #selector(CanvasView.saveImageAs(_:)), keyEquivalent: "s")
-        saveAs.keyEquivalentModifierMask = [.command, .shift]
+        fileMenu.addItem(withTitle: "Сохранить…", action: #selector(CanvasView.saveImage(_:)), keyEquivalent: "s")
         fileMenu.addItem(withTitle: "Закрыть", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
         main.addItem(submenuItem(fileMenu))
 

@@ -488,10 +488,6 @@ final class CanvasView: NSView, NSTextFieldDelegate {
     }
 
     @objc func saveImage(_ sender: Any?) {
-        write(to: Settings.saveDirectory.appendingPathComponent(Settings.screenshotFileName()))
-    }
-
-    @objc func saveImageAs(_ sender: Any?) {
         guard let window else { return }
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.png]
@@ -499,6 +495,7 @@ final class CanvasView: NSView, NSTextFieldDelegate {
         panel.nameFieldStringValue = Settings.screenshotFileName()
         panel.beginSheetModal(for: window) { [weak self] response in
             guard response == .OK, let url = panel.url else { return }
+            Settings.saveDirectory = url.deletingLastPathComponent()
             self?.write(to: url)
         }
     }
