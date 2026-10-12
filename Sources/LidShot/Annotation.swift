@@ -23,17 +23,17 @@ enum Tool: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .select: "Select & Move"
-        case .arrow: "Arrow"
-        case .line: "Line"
-        case .rect: "Rectangle"
-        case .ellipse: "Ellipse"
-        case .pen: "Pen"
-        case .highlighter: "Highlighter"
-        case .text: "Text"
-        case .counter: "Step Number"
-        case .pixelate: "Pixelate"
-        case .crop: "Crop"
+        case .select: "Выделить и двигать"
+        case .arrow: "Стрелка"
+        case .line: "Линия"
+        case .rect: "Прямоугольник"
+        case .ellipse: "Эллипс"
+        case .pen: "Карандаш"
+        case .highlighter: "Маркер"
+        case .text: "Текст"
+        case .counter: "Номер шага"
+        case .pixelate: "Пикселизация"
+        case .crop: "Обрезка"
         }
     }
 

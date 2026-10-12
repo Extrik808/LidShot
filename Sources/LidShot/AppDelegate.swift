@@ -52,12 +52,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(header)
 
         if lid.isOn {
-            menu.addItem(item("Turn Off Closed-Lid Mode", #selector(toggleLid), key: "l", modifiers: [.option, .shift]))
+            menu.addItem(item("Выключить режим закрытой крышки", #selector(toggleLid), key: "l", modifiers: [.option, .shift]))
         } else {
-            menu.addItem(item("Keep Awake with Lid Closed", #selector(toggleLid), key: "l", modifiers: [.option, .shift]))
-            let timed = NSMenuItem(title: "Keep Awake For", action: nil, keyEquivalent: "")
+            menu.addItem(item("Не спать с закрытой крышкой", #selector(toggleLid), key: "l", modifiers: [.option, .shift]))
+            let timed = NSMenuItem(title: "Не спать в течение", action: nil, keyEquivalent: "")
             let submenu = NSMenu()
-            for (title, minutes) in [("30 Minutes", 30), ("1 Hour", 60), ("2 Hours", 120), ("4 Hours", 240), ("8 Hours", 480)] {
+            for (title, minutes) in [("30 минут", 30), ("1 час", 60), ("2 часа", 120), ("4 часа", 240), ("8 часов", 480)] {
                 let entry = item(title, #selector(enableFor(_:)))
                 entry.tag = minutes
                 entry.isEnabled = lid.helperInstalled
@@ -65,7 +65,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             if !lid.helperInstalled {
                 submenu.addItem(.separator())
-                let hint = NSMenuItem(title: "Needs the password-free toggle", action: nil, keyEquivalent: "")
+                let hint = NSMenuItem(title: "Нужно переключение без пароля", action: nil, keyEquivalent: "")
                 hint.isEnabled = false
                 submenu.addItem(hint)
             }
@@ -74,28 +74,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menu.addItem(timed)
         }
 
-        let battery = item("Turn Off at \(LidController.batteryThreshold)% Battery", #selector(toggleBatteryGuard))
+        let battery = item("Выключать при заряде \(LidController.batteryThreshold)%", #selector(toggleBatteryGuard))
         battery.state = lid.batteryGuard ? .on : .off
         menu.addItem(battery)
 
         menu.addItem(item(
-            lid.helperInstalled ? "Remove Password-Free Toggle" : "Enable Password-Free Toggle…",
+            lid.helperInstalled ? "Отключить переключение без пароля" : "Включить переключение без пароля…",
             #selector(toggleHelper)
         ))
 
         menu.addItem(.separator())
-        menu.addItem(item("Capture Area / Window", #selector(captureArea), key: "4", modifiers: [.option, .shift]))
-        menu.addItem(item("Capture Screen", #selector(captureScreen), key: "3", modifiers: [.option, .shift]))
-        menu.addItem(item("Capture Screen in 5 Seconds", #selector(captureTimed)))
-        menu.addItem(item("Annotate Clipboard Image", #selector(annotateClipboard)))
-        menu.addItem(item("Open Image…", #selector(openImage)))
-        menu.addItem(item("Save Folder: \(Settings.saveDirectory.lastPathComponent)…", #selector(chooseSaveFolder)))
+        menu.addItem(item("Снимок области / окна", #selector(captureArea), key: "4", modifiers: [.option, .shift]))
+        menu.addItem(item("Снимок экрана", #selector(captureScreen), key: "3", modifiers: [.option, .shift]))
+        menu.addItem(item("Снимок экрана через 5 секунд", #selector(captureTimed)))
+        menu.addItem(item("Редактировать картинку из буфера", #selector(annotateClipboard)))
+        menu.addItem(item("Открыть изображение…", #selector(openImage)))
+        menu.addItem(item("Папка для снимков: \(Settings.saveDirectory.lastPathComponent)…", #selector(chooseSaveFolder)))
 
         menu.addItem(.separator())
-        let login = item("Launch at Login", #selector(toggleLaunchAtLogin))
+        let login = item("Запускать при входе", #selector(toggleLaunchAtLogin))
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(login)
-        menu.addItem(item("Quit LidShot", #selector(quit), key: "q", modifiers: [.command]))
+        menu.addItem(item("Выйти из LidShot", #selector(quit), key: "q", modifiers: [.command]))
     }
 
     private func item(_ title: String, _ action: Selector, key: String = "", modifiers: NSEvent.ModifierFlags = []) -> NSMenuItem {
@@ -165,7 +165,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         panel.canChooseFiles = false
         panel.canCreateDirectories = true
         panel.directoryURL = Settings.saveDirectory
-        panel.prompt = "Choose"
+        panel.prompt = "Выбрать"
         if panel.runModal() == .OK, let url = panel.url {
             Settings.saveDirectory = url
         }
@@ -201,25 +201,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let main = NSMenu()
 
         let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "Quit LidShot", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(withTitle: "Выйти из LidShot", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         main.addItem(submenuItem(appMenu))
 
-        let fileMenu = NSMenu(title: "File")
-        fileMenu.addItem(withTitle: "Save", action: #selector(CanvasView.saveImage(_:)), keyEquivalent: "s")
-        let saveAs = fileMenu.addItem(withTitle: "Save As…", action: #selector(CanvasView.saveImageAs(_:)), keyEquivalent: "s")
+        let fileMenu = NSMenu(title: "Файл")
+        fileMenu.addItem(withTitle: "Сохранить", action: #selector(CanvasView.saveImage(_:)), keyEquivalent: "s")
+        let saveAs = fileMenu.addItem(withTitle: "Сохранить как…", action: #selector(CanvasView.saveImageAs(_:)), keyEquivalent: "s")
         saveAs.keyEquivalentModifierMask = [.command, .shift]
-        fileMenu.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        fileMenu.addItem(withTitle: "Закрыть", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
         main.addItem(submenuItem(fileMenu))
 
-        let editMenu = NSMenu(title: "Edit")
-        editMenu.addItem(withTitle: "Undo", action: #selector(CanvasView.undo(_:)), keyEquivalent: "z")
-        let redo = editMenu.addItem(withTitle: "Redo", action: #selector(CanvasView.redo(_:)), keyEquivalent: "z")
+        let editMenu = NSMenu(title: "Правка")
+        editMenu.addItem(withTitle: "Отменить", action: #selector(CanvasView.undo(_:)), keyEquivalent: "z")
+        let redo = editMenu.addItem(withTitle: "Повторить", action: #selector(CanvasView.redo(_:)), keyEquivalent: "z")
         redo.keyEquivalentModifierMask = [.command, .shift]
         editMenu.addItem(.separator())
-        editMenu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
-        editMenu.addItem(withTitle: "Copy", action: #selector(CanvasView.copy(_:)), keyEquivalent: "c")
-        editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
-        editMenu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        editMenu.addItem(withTitle: "Вырезать", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        editMenu.addItem(withTitle: "Копировать", action: #selector(CanvasView.copy(_:)), keyEquivalent: "c")
+        editMenu.addItem(withTitle: "Вставить", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        editMenu.addItem(withTitle: "Выбрать все", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         main.addItem(submenuItem(editMenu))
 
         return main

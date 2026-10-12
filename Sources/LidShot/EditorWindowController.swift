@@ -3,7 +3,7 @@ import SwiftUI
 
 final class EditorWindowController: NSWindowController, NSWindowDelegate {
     private static let toolbarHeight: CGFloat = 46
-    private static let minContentSize = CGSize(width: 980, height: 320)
+    private static let minContentSize = CGSize(width: 1080, height: 320)
 
     let state = EditorState()
     let canvas: CanvasView
@@ -54,7 +54,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         window.delegate = self
         window.center()
         canvas.onStatus = { [weak window] message in window?.subtitle = message }
-        window.subtitle = "\(Int(image.size.width))×\(Int(image.size.height)) — Return copies & closes"
+        window.subtitle = "\(Int(image.size.width))×\(Int(image.size.height)) — Return: скопировать и закрыть"
     }
 
     @available(*, unavailable)

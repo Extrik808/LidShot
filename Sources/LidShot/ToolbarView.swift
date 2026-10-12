@@ -50,21 +50,21 @@ struct ToolbarView: View {
             Image(systemName: "lineweight").foregroundStyle(.secondary)
             Slider(value: $state.width, in: 1...12)
                 .frame(width: 90)
-                .help("Stroke width / text size")
+                .help("Толщина линии / размер текста")
 
             Spacer(minLength: 8)
 
             Button { canvas.undo(nil) } label: { Image(systemName: "arrow.uturn.backward") }
-                .help("Undo (⌘Z)")
+                .help("Отменить (⌘Z)")
             Button { canvas.redo(nil) } label: { Image(systemName: "arrow.uturn.forward") }
-                .help("Redo (⇧⌘Z)")
-            Button("Save") { canvas.saveImage(nil) }
-                .help("Save to the screenshot folder (⌘S), Save As: ⇧⌘S")
-            Button("Copy") { canvas.copy(nil) }
-                .help("Copy to clipboard (⌘C)")
-            Button("Done") { canvas.finish() }
+                .help("Повторить (⇧⌘Z)")
+            Button("Сохранить") { canvas.saveImage(nil) }
+                .help("Сохранить в папку снимков (⌘S), «Сохранить как»: ⇧⌘S")
+            Button("Копировать") { canvas.copy(nil) }
+                .help("Скопировать в буфер (⌘C)")
+            Button("Готово") { canvas.finish() }
                 .buttonStyle(.borderedProminent)
-                .help("Copy and close (Return)")
+                .help("Скопировать и закрыть (Return)")
         }
         .padding(.horizontal, 12)
         .frame(height: 46)

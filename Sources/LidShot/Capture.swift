@@ -41,10 +41,10 @@ enum Capture {
         }
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
-        alert.messageText = "Screen Recording permission needed"
-        alert.informativeText = "Allow LidShot in System Settings → Privacy & Security → Screen & System Audio Recording, then relaunch LidShot."
-        alert.addButton(withTitle: "Open System Settings")
-        alert.addButton(withTitle: "Cancel")
+        alert.messageText = "Нужен доступ к записи экрана"
+        alert.informativeText = "Разрешите LidShot в Системных настройках → Конфиденциальность и безопасность → Запись экрана и системного звука, затем перезапустите LidShot."
+        alert.addButton(withTitle: "Открыть Системные настройки")
+        alert.addButton(withTitle: "Отмена")
         if alert.runModal() == .alertFirstButtonReturn,
            let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
             NSWorkspace.shared.open(url)

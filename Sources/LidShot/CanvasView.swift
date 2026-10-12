@@ -271,7 +271,7 @@ final class CanvasView: NSView, NSTextFieldDelegate {
         pushUndo()
         crop = clipped
         state.tool = .select
-        onStatus?("Cropped to \(Int(clipped.width))×\(Int(clipped.height)) — ⌘Z to undo")
+        onStatus?("Обрезано до \(Int(clipped.width))×\(Int(clipped.height)) — ⌘Z для отмены")
     }
 
     override func keyDown(with event: NSEvent) {
@@ -484,7 +484,7 @@ final class CanvasView: NSView, NSTextFieldDelegate {
         if let tiff = NSImage(data: png)?.tiffRepresentation {
             pasteboard.setData(tiff, forType: .tiff)
         }
-        onStatus?("Copied to clipboard")
+        onStatus?("Скопировано в буфер обмена")
     }
 
     @objc func saveImage(_ sender: Any?) {
@@ -515,9 +515,9 @@ final class CanvasView: NSView, NSTextFieldDelegate {
         }
         do {
             try png.write(to: url)
-            onStatus?("Saved \(url.lastPathComponent)")
+            onStatus?("Сохранено: \(url.lastPathComponent)")
         } catch {
-            onStatus?("Save failed: \(error.localizedDescription)")
+            onStatus?("Не удалось сохранить: \(error.localizedDescription)")
         }
     }
 }

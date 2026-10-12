@@ -24,11 +24,11 @@ final class LidController {
     }
 
     var statusText: String {
-        guard isOn else { return "Closed-Lid Mode: Off" }
-        guard let expiresAt else { return "Closed-Lid Mode: On" }
+        guard isOn else { return "Режим закрытой крышки: выкл." }
+        guard let expiresAt else { return "Режим закрытой крышки: вкл." }
         let formatter = DateFormatter()
         formatter.timeStyle = .short
-        return "Closed-Lid Mode: On until \(formatter.string(from: expiresAt))"
+        return "Режим закрытой крышки: вкл. до \(formatter.string(from: expiresAt))"
     }
 
     func syncWithSystem() {
@@ -76,7 +76,7 @@ final class LidController {
             IOPMAssertionCreateWithName(
                 kIOPMAssertionTypePreventUserIdleSystemSleep as CFString,
                 IOPMAssertionLevel(kIOPMAssertionLevelOn),
-                "LidShot closed-lid mode" as CFString,
+                "LidShot: режим закрытой крышки" as CFString,
                 &assertionID
             )
         }

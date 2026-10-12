@@ -33,7 +33,7 @@ enum Settings {
 
     static func screenshotFileName() -> String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd 'at' HH.mm.ss"
-        return "Screenshot \(formatter.string(from: Date())).png"
+        formatter.dateFormat = "yyyy-MM-dd 'в' HH.mm.ss"
+        return "Снимок экрана \(formatter.string(from: Date())).png"
     }
 }
