@@ -62,18 +62,8 @@ struct ToolbarView: View {
                 .help("Сохранить в файл (⌘S)")
             Button { canvas.copy(nil) } label: { Image(systemName: "doc.on.doc") }
                 .help("Скопировать в буфер (⌘C)")
-            Menu {
-                Section("Ссылка действует") {
-                    ForEach(LinkExpiry.allCases) { expiry in
-                        Button(expiry.title) { canvas.shareLink(expiry) }
-                    }
-                }
-            } label: {
-                Image(systemName: "link")
-            }
-            .menuIndicator(.hidden)
-            .fixedSize()
-            .help("Загрузить и скопировать ссылку")
+            Button { canvas.showLinkMenu() } label: { Image(systemName: "link") }
+                .help("Загрузить и скопировать ссылку")
             Button("Готово") { canvas.finish() }
                 .buttonStyle(.borderedProminent)
                 .help("Скопировать и закрыть (Return)")

@@ -501,6 +501,25 @@ final class CanvasView: NSView, NSTextFieldDelegate {
         }
     }
 
+    func showLinkMenu() {
+        let menu = NSMenu()
+        let header = NSMenuItem(title: "Ссылка действует", action: nil, keyEquivalent: "")
+        header.isEnabled = false
+        menu.addItem(header)
+        for expiry in LinkExpiry.allCases {
+            let item = NSMenuItem(title: expiry.title, action: #selector(linkMenuPicked(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = expiry.rawValue
+            menu.addItem(item)
+        }
+        menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
+    }
+
+    @objc private func linkMenuPicked(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String, let expiry = LinkExpiry(rawValue: raw) else { return }
+        shareLink(expiry)
+    }
+
     func shareLink(_ expiry: LinkExpiry) {
         guard !isUploading else { return }
         guard let png = renderPNG() else {
