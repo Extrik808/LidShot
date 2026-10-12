@@ -58,10 +58,22 @@ struct ToolbarView: View {
                 .help("Отменить (⌘Z)")
             Button { canvas.redo(nil) } label: { Image(systemName: "arrow.uturn.forward") }
                 .help("Повторить (⇧⌘Z)")
-            Button("Сохранить") { canvas.saveImage(nil) }
+            Button { canvas.saveImage(nil) } label: { Image(systemName: "square.and.arrow.down") }
                 .help("Сохранить в файл (⌘S)")
-            Button("Копировать") { canvas.copy(nil) }
+            Button { canvas.copy(nil) } label: { Image(systemName: "doc.on.doc") }
                 .help("Скопировать в буфер (⌘C)")
+            Menu {
+                Section("Ссылка действует") {
+                    ForEach(LinkExpiry.allCases) { expiry in
+                        Button(expiry.title) { canvas.shareLink(expiry) }
+                    }
+                }
+            } label: {
+                Image(systemName: "link")
+            }
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help("Загрузить и скопировать ссылку")
             Button("Готово") { canvas.finish() }
                 .buttonStyle(.borderedProminent)
                 .help("Скопировать и закрыть (Return)")

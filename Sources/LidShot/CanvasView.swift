@@ -32,6 +32,7 @@ final class CanvasView: NSView, NSTextFieldDelegate {
     private var textField: NSTextField?
     private var editingText: Annotation?
     private var cancellables: Set<AnyCancellable> = []
+    private var isUploading = false
 
     init(image: NSImage, state: EditorState) {
         self.image = image
@@ -497,6 +498,30 @@ final class CanvasView: NSView, NSTextFieldDelegate {
             guard response == .OK, let url = panel.url else { return }
             Settings.saveDirectory = url.deletingLastPathComponent()
             self?.write(to: url)
+        }
+    }
+
+    func shareLink(_ expiry: LinkExpiry) {
+        guard !isUploading else { return }
+        guard let png = renderPNG() else {
+            NSSound.beep()
+            return
+        }
+        isUploading = true
+        onStatus?("Загрузка…")
+        Uploader.upload(png, expiry: expiry) { [weak self] result in
+            guard let self else { return }
+            isUploading = false
+            switch result {
+            case .success(let url):
+                let pasteboard = NSPasteboard.general
+                pasteboard.clearContents()
+                pasteboard.setString(url.absoluteString, forType: .string)
+                onStatus?("Ссылка скопирована: \(url.absoluteString) — действует \(expiry.title)")
+            case .failure(let error):
+                NSSound.beep()
+                onStatus?("Не удалось загрузить: \(error.localizedDescription)")
+            }
         }
     }
 

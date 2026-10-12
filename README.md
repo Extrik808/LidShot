@@ -30,3 +30,5 @@ Requires the Xcode Command Line Tools, macOS 13 or later.
   selected shape. Double-click text to edit it. Delete removes the selected shape.
 - Return copies the image and closes the window. ⌘C copies, ⌘S saves to a file (the last folder is
   remembered), and ⌘Z / ⇧⌘Z undo and redo.
+- The link button uploads the image to litterbox.catbox.moe (anonymous, public, auto-deleted after 1 h,
+  12 h, 24 h or 3 days) and copies the URL. Anyone with the link can open the image until it expires.

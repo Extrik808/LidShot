@@ -8,7 +8,7 @@ final class LidController {
 
     private(set) var isOn = false
     private(set) var expiresAt: Date?
-    private var assertionID: IOPMAssertionID = 0
+    private var assertionIDs: [IOPMAssertionID] = []
     private var expiryTimer: Timer?
     private var batteryTimer: Timer?
 
@@ -72,13 +72,24 @@ final class LidController {
     private func activate(until date: Date?) {
         isOn = true
         expiresAt = date
-        if assertionID == 0 {
-            IOPMAssertionCreateWithName(
-                kIOPMAssertionTypePreventUserIdleSystemSleep as CFString,
-                IOPMAssertionLevel(kIOPMAssertionLevelOn),
-                "LidShot: режим закрытой крышки" as CFString,
-                &assertionID
-            )
+        if assertionIDs.isEmpty {
+            let types = [
+                kIOPMAssertionTypePreventUserIdleSystemSleep,
+                kIOPMAssertionTypePreventUserIdleDisplaySleep,
+                "NetworkClientActive"
+            ]
+            for type in types {
+                var id: IOPMAssertionID = 0
+                let status = IOPMAssertionCreateWithName(
+                    type as CFString,
+                    IOPMAssertionLevel(kIOPMAssertionLevelOn),
+                    "LidShot: режим закрытой крышки" as CFString,
+                    &id
+                )
+                if status == kIOReturnSuccess {
+                    assertionIDs.append(id)
+                }
+            }
         }
         expiryTimer?.invalidate()
         expiryTimer = nil
@@ -101,10 +112,8 @@ final class LidController {
         expiryTimer = nil
         batteryTimer?.invalidate()
         batteryTimer = nil
-        if assertionID != 0 {
-            IOPMAssertionRelease(assertionID)
-            assertionID = 0
-        }
+        assertionIDs.forEach { IOPMAssertionRelease($0) }
+        assertionIDs.removeAll()
         onChange?()
     }
 
