@@ -14,7 +14,7 @@ Requires the Xcode Command Line Tools, macOS 13 or later.
 ## Closed-lid mode
 
 - **⌥⇧L** (configurable) or the menu toggles it. It runs `pmset -a disablesleep 1` and holds an idle-sleep assertion.
-- **Enable Password-Free Toggle…** installs `/etc/sudoers.d/lidshot`. That file lets your user run only
+- **Включить переключение без пароля…** installs `/etc/sudoers.d/lidshot`. That file lets your user run only
   `pmset -a disablesleep 0|1` without a password. Timers and the battery auto-off need it, because
   nobody can type a password while the lid is closed.
 - Quitting the app turns the mode off.
