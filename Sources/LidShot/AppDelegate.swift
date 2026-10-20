@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var editors: [EditorWindowController] = []
     private let hotKeySettings = HotKeySettings()
     private var hotKeyWindow: HotKeySettingsWindowController?
+    private let holdSelector = HoldTextSelector()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = Self.makeMainMenu()
@@ -15,6 +16,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let menu = NSMenu()
         menu.delegate = self
         statusItem.menu = menu
+
+        holdSelector.start()
 
         lid.onChange = { [weak self] in self?.updateIcon() }
         lid.syncWithSystem()
@@ -111,6 +114,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(item("Снимок области", #selector(captureArea), hotKey: HotKeyAction.captureArea.hotKey))
         menu.addItem(item("Скопировать текст с экрана", #selector(captureText), hotKey: HotKeyAction.captureText.hotKey))
         menu.addItem(item("Распознать текст из буфера", #selector(textFromClipboard)))
+        let hold = NSMenuItem(title: "Выделять текст удержанием", action: nil, keyEquivalent: "")
+        let holdMenu = NSMenu()
+        for option in HoldModifiers.allCases {
+            let entry = item(option.title, #selector(pickHoldModifiers(_:)))
+            entry.tag = option.rawValue
+            entry.state = HoldModifiers.current == option ? .on : .off
+            holdMenu.addItem(entry)
+        }
+        hold.submenu = holdMenu
+        menu.addItem(hold)
         menu.addItem(item("Открыть картинку…", #selector(openImage)))
         menu.addItem(item("Горячие клавиши…", #selector(showHotKeys)))
 
@@ -161,6 +174,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func captureText() {
         Capture.area { [weak self] image in self?.recognizeAndCopy(image) }
+    }
+
+    @objc private func pickHoldModifiers(_ sender: NSMenuItem) {
+        HoldModifiers.current = HoldModifiers(rawValue: sender.tag) ?? .off
     }
 
     @objc private func textFromClipboard() {

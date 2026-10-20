@@ -94,6 +94,9 @@ Press **⌥⇧4** and drag over an area. Press Space while selecting to capture 
 LidShot can pull text out of any picture: a screenshot, a photo someone posted in Slack, a scanned document.
 Recognition runs on the Mac with Apple's Vision framework. Nothing is uploaded. It reads Russian and English.
 
+- **Hold ⌥⌘** anywhere: the screen freezes for a moment, and you can select text with the mouse right where it
+  is, in Slack, a video, a picture or a PDF. Release the keys and the selection is copied. Esc cancels. The keys
+  can be changed or the feature turned off in «Выделять текст удержанием».
 - **⌥⇧2** («Скопировать текст с экрана»): drag over anything on screen. The text goes straight to the clipboard,
   and a small notice in the corner shows what was copied.
 - «Распознать текст из буфера»: copy an image first (for example, right-click a photo in Slack → Copy image),
