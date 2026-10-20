@@ -3,13 +3,29 @@ import ApplicationServices
 import Translation
 
 final class InPlaceTranslator {
-    private var isBusy = false
+    private(set) var isBusy = false
+    private var completion: (() -> Void)?
 
-    func run() {
+    func run(waitForModifiers: Bool = true, completion: (() -> Void)? = nil) {
         guard !isBusy else { return }
-        guard ensureAccessibility() else { return }
+        guard ensureAccessibility() else {
+            completion?()
+            return
+        }
         isBusy = true
-        waitForModifiersRelease { [weak self] in self?.grabText() }
+        self.completion = completion
+        if waitForModifiers {
+            waitForModifiersRelease { [weak self] in self?.grabText() }
+        } else {
+            grabText()
+        }
+    }
+
+    private func done() {
+        done()
+        let completion = completion
+        self.completion = nil
+        completion?()
     }
 
     private func ensureAccessibility() -> Bool {
@@ -89,7 +105,7 @@ final class InPlaceTranslator {
         Toast.show("Перевожу…")
         guard #available(macOS 26.0, *) else {
             saved.restore()
-            isBusy = false
+            done()
             TranslationWindowController.shared.show(text)
             return
         }
@@ -107,7 +123,7 @@ final class InPlaceTranslator {
                 paste(Self.keepEdges(of: text, around: result), saved: saved)
             } catch {
                 saved.restore()
-                isBusy = false
+                done()
                 Toast.show("Сначала скачайте языковой пакет", detail: "Откроется окно перевода: согласитесь на загрузку, дальше всё офлайн")
                 TranslationWindowController.shared.show(text)
             }
@@ -122,14 +138,14 @@ final class InPlaceTranslator {
         Keyboard.press(9, flags: .maskCommand)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             saved.restore()
-            self?.isBusy = false
+            self?.done()
             Toast.show("Переведено", detail: text)
         }
     }
 
     private func fail(_ message: String, saved: PasteboardSnapshot) {
         saved.restore()
-        isBusy = false
+        done()
         NSSound.beep()
         Toast.show(message)
     }

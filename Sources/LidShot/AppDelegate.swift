@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let holdSelector = HoldTextSelector()
     private let copyTwice = CopyTwiceWatcher()
     private let inPlace = InPlaceTranslator()
+    private lazy var inputButton = InputButtonController(translator: inPlace)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = Self.makeMainMenu()
@@ -23,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         holdSelector.start()
         copyTwice.onTrigger = { TranslationWindowController.shared.translateClipboard() }
         copyTwice.start()
+        inputButton.start()
         hotKeySettings.onHoldRecording = { [weak self] isRecording in self?.holdSelector.isPaused = isRecording }
 
         lid.onChange = { [weak self] in self?.updateIcon() }
@@ -128,6 +130,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(item("Перевести текст с экрана", #selector(translateArea), hotKey: HotKeyAction.translateArea.hotKey))
         menu.addItem(item("Перевести из буфера", #selector(translateClipboard)))
         menu.addItem(item("Перевести текст в поле ввода", #selector(translateInPlace), hotKey: HotKeyAction.translateInPlace.hotKey))
+        let button = item("Кнопка перевода в полях ввода", #selector(toggleInputButton))
+        button.state = InputButtonController.isEnabled && AXIsProcessTrusted() ? .on : .off
+        menu.addItem(button)
         let style = NSMenuItem(title: "Стиль английского: \(EnglishStyle.current.title)", action: nil, keyEquivalent: "")
         let styleMenu = NSMenu()
         styleMenu.autoenablesItems = false
@@ -207,6 +212,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func translateClipboard() {
         TranslationWindowController.shared.translateClipboard()
+    }
+
+    @objc private func toggleInputButton() {
+        let trusted = AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
+        if InputButtonController.isEnabled, trusted, InputButtonController.hiddenApps.isEmpty {
+            InputButtonController.isEnabled = false
+            return
+        }
+        InputButtonController.isEnabled = true
+        InputButtonController.hiddenApps = []
+        if !trusted {
+            Toast.show("Включите LidShot в «Универсальном доступе»", detail: "Системные настройки → Конфиденциальность и безопасность → Универсальный доступ")
+        }
     }
 
     @objc private func translateInPlace() {
