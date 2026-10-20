@@ -9,6 +9,12 @@ final class InputButtonController {
         "dev.warp.Warp-Stable", "com.apple.keychainaccess", "com.1password.1password"
     ]
 
+    private static let chromiumBrowsers: Set<String> = [
+        "com.google.Chrome", "com.google.Chrome.beta", "com.google.Chrome.canary", "company.thebrowser.Browser",
+        "com.brave.Browser", "com.microsoft.edgemac", "ru.yandex.desktop.yandex-browser", "com.operasoftware.Opera",
+        "com.vivaldi.Vivaldi", "org.chromium.Chromium"
+    ]
+
     private let translator: InPlaceTranslator
     private var timer: Timer?
     private var panel: InputButtonPanel?
@@ -50,7 +56,7 @@ final class InputButtonController {
             hide()
             return
         }
-        enableElectronAccessibility(app)
+        enableAccessibility(app)
         guard let anchor = Self.anchor(in: app.processIdentifier) else {
             hide()
             return
@@ -58,12 +64,15 @@ final class InputButtonController {
         show(at: anchor, bundleID: bundleID)
     }
 
-    private func enableElectronAccessibility(_ app: NSRunningApplication) {
+    private func enableAccessibility(_ app: NSRunningApplication) {
         let pid = app.processIdentifier
         guard !electronPids.contains(pid) else { return }
         electronPids.insert(pid)
         let element = AXUIElementCreateApplication(pid)
         AXUIElementSetAttributeValue(element, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+        if Self.chromiumBrowsers.contains(app.bundleIdentifier ?? "") {
+            AXUIElementSetAttributeValue(element, "AXEnhancedUserInterface" as CFString, kCFBooleanTrue)
+        }
     }
 
     private func show(at anchor: CGPoint, bundleID: String) {
@@ -118,7 +127,8 @@ final class InputButtonController {
         }
         guard editable else { return nil }
         let value: String = attribute(element, kAXValueAttribute) ?? ""
-        guard value.trimmingCharacters(in: .whitespacesAndNewlines).count >= 2 else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= 2, !looksLikeAddress(trimmed) else { return nil }
         guard let frame = frame(of: element), frame.width > 30, frame.height > 10 else { return nil }
 
         let cocoa = toCocoa(frame)
@@ -130,6 +140,13 @@ final class InputButtonController {
             return CGPoint(x: min(point.maxX + 34, cocoa.maxX - 4), y: point.minY - 30)
         }
         return nil
+    }
+
+    private static func looksLikeAddress(_ text: String) -> Bool {
+        guard !text.contains(where: \.isWhitespace) else { return false }
+        if text.contains("://") || text.hasPrefix("www.") { return true }
+        let parts = text.split(separator: "/").first?.split(separator: ".") ?? []
+        return parts.count >= 2 && (parts.last?.count ?? 0) >= 2 && parts.last!.allSatisfy(\.isLetter)
     }
 
     private static func frame(of element: AXUIElement) -> CGRect? {

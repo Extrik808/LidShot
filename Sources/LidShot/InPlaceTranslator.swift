@@ -22,7 +22,7 @@ final class InPlaceTranslator {
     }
 
     private func done() {
-        done()
+        isBusy = false
         let completion = completion
         self.completion = nil
         completion?()
