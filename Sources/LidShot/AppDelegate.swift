@@ -63,7 +63,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func perform(_ action: HotKeyAction) {
         switch action {
         case .captureArea: captureArea()
-        case .captureText: captureText()
         case .translateArea: translateArea()
         case .toggleLid: toggleLid()
         }
@@ -118,7 +117,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menu.addItem(.separator())
         menu.addItem(item("Снимок области", #selector(captureArea), hotKey: HotKeyAction.captureArea.hotKey))
-        menu.addItem(item("Скопировать текст с экрана", #selector(captureText), hotKey: HotKeyAction.captureText.hotKey))
         menu.addItem(item("Распознать текст из буфера", #selector(textFromClipboard)))
         let hold = item("Выделять текст удержанием \(HoldKeys.display(HoldKeys.current ?? HoldKeys.defaultFlags))", #selector(toggleHold))
         hold.state = HoldKeys.current == nil ? .off : .on
@@ -178,10 +176,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func captureArea() {
         Capture.area { [weak self] image in self?.openEditor(image) }
-    }
-
-    @objc private func captureText() {
-        Capture.area { [weak self] image in self?.recognizeAndCopy(image) }
     }
 
     @objc private func toggleHold() {

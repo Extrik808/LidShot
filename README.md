@@ -97,8 +97,6 @@ Recognition runs on the Mac with Apple's Vision framework. Nothing is uploaded. 
 - **Hold ⌥⌘** anywhere: the screen freezes for a moment, and you can select text with the mouse right where it
   is, in Slack, a video, a picture or a PDF. Release the keys and the selection is copied. Esc cancels. The keys
   can be changed or the feature turned off in «Выделять текст удержанием».
-- **⌥⇧2** («Скопировать текст с экрана»): drag over anything on screen. The text goes straight to the clipboard,
-  and a small notice in the corner shows what was copied.
 - «Распознать текст из буфера»: copy an image first (for example, right-click a photo in Slack → Copy image),
   then pick this menu item. The text replaces the image in the clipboard.
 - «Открыть картинку…» opens an image file in the editor.
