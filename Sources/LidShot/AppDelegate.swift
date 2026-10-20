@@ -55,6 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func perform(_ action: HotKeyAction) {
         switch action {
         case .captureArea: captureArea()
+        case .captureText: captureText()
         case .toggleLid: toggleLid()
         }
     }
@@ -108,6 +109,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menu.addItem(.separator())
         menu.addItem(item("Снимок области", #selector(captureArea), hotKey: HotKeyAction.captureArea.hotKey))
+        menu.addItem(item("Скопировать текст с экрана", #selector(captureText), hotKey: HotKeyAction.captureText.hotKey))
+        menu.addItem(item("Распознать текст из буфера", #selector(textFromClipboard)))
+        menu.addItem(item("Открыть картинку…", #selector(openImage)))
         menu.addItem(item("Горячие клавиши…", #selector(showHotKeys)))
 
         menu.addItem(.separator())
@@ -153,6 +157,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func captureArea() {
         Capture.area { [weak self] image in self?.openEditor(image) }
+    }
+
+    @objc private func captureText() {
+        Capture.area { [weak self] image in self?.recognizeAndCopy(image) }
+    }
+
+    @objc private func textFromClipboard() {
+        guard let image = NSImage(pasteboard: NSPasteboard.general) else {
+            Toast.show("В буфере нет картинки", detail: "Скопируйте изображение и повторите")
+            return
+        }
+        recognizeAndCopy(image)
+    }
+
+    @objc private func openImage() {
+        NSApp.activate(ignoringOtherApps: true)
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.image]
+        panel.allowsMultipleSelection = true
+        guard panel.runModal() == .OK else { return }
+        for url in panel.urls {
+            if let image = NSImage(contentsOf: url) {
+                openEditor(image)
+            } else {
+                Toast.show("Не удалось открыть", detail: url.lastPathComponent)
+            }
+        }
+    }
+
+    private func recognizeAndCopy(_ image: NSImage) {
+        Toast.show("Распознаю текст…")
+        TextRecognizer.recognize(image) { text in
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else {
+                NSSound.beep()
+                Toast.show("Текст не найден")
+                return
+            }
+            Clipboard.copy(trimmed)
+            let lines = trimmed.split(separator: "\n").count
+            Toast.show("Текст скопирован · строк: \(lines)", detail: trimmed)
+        }
     }
 
     @objc private func showHotKeys() {

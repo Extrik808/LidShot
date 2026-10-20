@@ -1,7 +1,8 @@
 import AppKit
 import Combine
+import VisionKit
 
-final class CanvasView: NSView, NSTextFieldDelegate {
+final class CanvasView: NSView, NSTextFieldDelegate, ImageAnalysisOverlayViewDelegate {
     private struct Snapshot {
         var annotations: [Annotation]
         var crop: CGRect?
@@ -33,6 +34,9 @@ final class CanvasView: NSView, NSTextFieldDelegate {
     private var editingText: Annotation?
     private var cancellables: Set<AnyCancellable> = []
     private var isUploading = false
+    private var liveOverlay: ImageAnalysisOverlayView?
+    private var liveTask: Task<Void, Never>?
+    private var isRecognizing = false
 
     init(image: NSImage, state: EditorState) {
         self.image = image
@@ -42,6 +46,13 @@ final class CanvasView: NSView, NSTextFieldDelegate {
         super.init(frame: .zero)
 
         state.$tool.dropFirst().sink { [weak self] tool in self?.toolChanged(to: tool) }.store(in: &cancellables)
+        state.$liveText.dropFirst().removeDuplicates().sink { [weak self] isOn in
+            if isOn {
+                self?.startLiveText()
+            } else {
+                self?.stopLiveText()
+            }
+        }.store(in: &cancellables)
         state.$color.dropFirst().sink { [weak self] color in
             self?.restyleSelection(key: "color") { $0.color = color }
         }.store(in: &cancellables)
@@ -153,9 +164,14 @@ final class CanvasView: NSView, NSTextFieldDelegate {
     override func setFrameSize(_ newSize: NSSize) {
         super.setFrameSize(newSize)
         layoutTextField()
+        layoutLiveOverlay()
     }
 
     override func mouseDown(with event: NSEvent) {
+        if let liveOverlay {
+            liveOverlay.resetSelection()
+            return
+        }
         if textField != nil {
             commitText()
             return
@@ -216,6 +232,7 @@ final class CanvasView: NSView, NSTextFieldDelegate {
     }
 
     override func mouseDragged(with event: NSEvent) {
+        guard liveOverlay == nil else { return }
         let raw = imagePoint(event)
         let constrained = event.modifierFlags.contains(.shift)
 
@@ -284,7 +301,9 @@ final class CanvasView: NSView, NSTextFieldDelegate {
             finish()
             return
         case 53:
-            if selectedID != nil {
+            if state.liveText {
+                state.liveText = false
+            } else if selectedID != nil {
                 selectedID = nil
             } else if !hasEdits {
                 window?.performClose(nil)
@@ -294,6 +313,14 @@ final class CanvasView: NSView, NSTextFieldDelegate {
             break
         }
         let modifiers = event.modifierFlags.intersection([.command, .control, .option])
+        if modifiers.isEmpty, event.charactersIgnoringModifiers?.lowercased() == "x" {
+            state.liveText.toggle()
+            return
+        }
+        if modifiers == .command, event.modifierFlags.contains(.shift), event.charactersIgnoringModifiers?.lowercased() == "c" {
+            copyAllText()
+            return
+        }
         if modifiers.isEmpty,
            let character = event.charactersIgnoringModifiers?.lowercased().first,
            let tool = Tool.allCases.first(where: { $0.key == character }) {
@@ -305,6 +332,7 @@ final class CanvasView: NSView, NSTextFieldDelegate {
 
     private func toolChanged(to tool: Tool) {
         commitText()
+        state.liveText = false
         if tool != .select {
             selectedID = nil
         }
@@ -459,12 +487,14 @@ final class CanvasView: NSView, NSTextFieldDelegate {
 
     @objc func undo(_ sender: Any?) {
         commitText()
+        state.liveText = false
         guard let previous = undoStack.popLast() else { return }
         redoStack.append(Snapshot(annotations: annotations, crop: crop))
         restore(previous)
     }
 
     @objc func redo(_ sender: Any?) {
+        state.liveText = false
         guard let next = redoStack.popLast() else { return }
         undoStack.append(Snapshot(annotations: annotations, crop: crop))
         restore(next)
@@ -475,6 +505,14 @@ final class CanvasView: NSView, NSTextFieldDelegate {
     }
 
     @objc func copy(_ sender: Any?) {
+        if #available(macOS 14.0, *), let liveOverlay, liveOverlay.hasActiveTextSelection {
+            let text = liveOverlay.selectedText
+            if !text.isEmpty {
+                Clipboard.copy(text)
+                onStatus?("Текст скопирован")
+                return
+            }
+        }
         guard let png = renderPNG() else {
             NSSound.beep()
             return
@@ -542,6 +580,82 @@ final class CanvasView: NSView, NSTextFieldDelegate {
                 onStatus?("Не удалось загрузить: \(error.localizedDescription)")
             }
         }
+    }
+
+    func copyAllText() {
+        guard !isRecognizing else { return }
+        guard let png = renderPNG(), let rendered = NSImage(data: png) else {
+            NSSound.beep()
+            return
+        }
+        isRecognizing = true
+        onStatus?("Распознаю текст…")
+        TextRecognizer.recognize(rendered) { [weak self] text in
+            guard let self else { return }
+            isRecognizing = false
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else {
+                NSSound.beep()
+                onStatus?("Текст не найден")
+                return
+            }
+            Clipboard.copy(trimmed)
+            onStatus?("Текст скопирован · строк: \(trimmed.split(separator: "\n").count)")
+        }
+    }
+
+    private func startLiveText() {
+        commitText()
+        selectedID = nil
+        guard ImageAnalyzer.isSupported, let png = renderPNG(), let rendered = NSImage(data: png) else {
+            NSSound.beep()
+            state.liveText = false
+            return
+        }
+        let overlay = ImageAnalysisOverlayView()
+        overlay.delegate = self
+        overlay.preferredInteractionTypes = .textSelection
+        addSubview(overlay)
+        liveOverlay = overlay
+        layoutLiveOverlay()
+        onStatus?("Распознаю текст…")
+
+        liveTask = Task { @MainActor [weak self] in
+            do {
+                let analysis = try await ImageAnalyzer().analyze(
+                    rendered,
+                    orientation: .up,
+                    configuration: ImageAnalyzer.Configuration([.text, .machineReadableCode])
+                )
+                guard let self, liveOverlay === overlay else { return }
+                overlay.analysis = analysis
+                onStatus?(analysis.hasResults(for: .text)
+                    ? "Выделите текст мышью, ⌘C — скопировать. Esc — выйти"
+                    : "Текст не найден")
+            } catch {
+                guard let self, liveOverlay === overlay else { return }
+                onStatus?("Не удалось распознать: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    private func stopLiveText() {
+        liveTask?.cancel()
+        liveTask = nil
+        guard let overlay = liveOverlay else { return }
+        liveOverlay = nil
+        overlay.removeFromSuperview()
+        window?.makeFirstResponder(self)
+    }
+
+    private func layoutLiveOverlay() {
+        guard let liveOverlay else { return }
+        let s = scale
+        liveOverlay.frame = CGRect(origin: origin, size: CGSize(width: viewport.width * s, height: viewport.height * s))
+    }
+
+    func contentsRect(for overlayView: ImageAnalysisOverlayView) -> CGRect {
+        CGRect(x: 0, y: 0, width: 1, height: 1)
     }
 
     func finish() {

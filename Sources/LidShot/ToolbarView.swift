@@ -27,6 +27,23 @@ struct ToolbarView: View {
 
             Divider().frame(height: 22)
 
+            Button {
+                state.liveText.toggle()
+            } label: {
+                Image(systemName: "text.viewfinder")
+                    .font(.system(size: 14, weight: .medium))
+                    .frame(width: 30, height: 28)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(state.liveText ? Color.accentColor.opacity(0.28) : Color.clear)
+                    )
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Выделить текст на картинке (X)")
+
+            Divider().frame(height: 22)
+
             HStack(spacing: 7) {
                 ForEach(Palette.colors.indices, id: \.self) { index in
                     let color = Palette.colors[index]
@@ -60,6 +77,8 @@ struct ToolbarView: View {
                 .help("Повторить (⇧⌘Z)")
             Button { canvas.saveImage(nil) } label: { Image(systemName: "square.and.arrow.down") }
                 .help("Сохранить в файл (⌘S)")
+            Button { canvas.copyAllText() } label: { Image(systemName: "doc.plaintext") }
+                .help("Скопировать весь текст с картинки (⇧⌘C)")
             Button { canvas.copy(nil) } label: { Image(systemName: "doc.on.doc") }
                 .help("Скопировать в буфер (⌘C)")
             Button { canvas.showLinkMenu() } label: { Image(systemName: "link") }

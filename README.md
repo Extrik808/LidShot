@@ -89,7 +89,21 @@ Press **⌥⇧4** and drag over an area. Press Space while selecting to capture 
   You choose how long the link lives: 1 hour, 12 hours, 24 hours or 3 days. The upload is anonymous but public:
   anyone with the link can open the image until it expires. Pixelate private details first.
 
-Both shortcuts can be changed or turned off in «Горячие клавиши…».
+## Text from images
+
+LidShot can pull text out of any picture: a screenshot, a photo someone posted in Slack, a scanned document.
+Recognition runs on the Mac with Apple's Vision framework. Nothing is uploaded. It reads Russian and English.
+
+- **⌥⇧2** («Скопировать текст с экрана»): drag over anything on screen. The text goes straight to the clipboard,
+  and a small notice in the corner shows what was copied.
+- «Распознать текст из буфера»: copy an image first (for example, right-click a photo in Slack → Copy image),
+  then pick this menu item. The text replaces the image in the clipboard.
+- «Открыть картинку…» opens an image file in the editor.
+- In the editor, the text button (or **X**) lets you select text on the image with the mouse, as in Preview.
+  **⌘C** copies the selection, and **Esc** goes back to drawing. The document button (or **⇧⌘C**) copies all the
+  text on the image.
+
+All three shortcuts can be changed or turned off in «Горячие клавиши…».
 
 ## Build from source
 

@@ -5,6 +5,7 @@ final class EditorState: ObservableObject {
     @Published var tool: Tool = .arrow
     @Published var color: NSColor = Palette.colors[0]
     @Published var width: CGFloat = 4
+    @Published var liveText = false
 }
 
 enum Palette {
