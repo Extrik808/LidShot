@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let hotKeySettings = HotKeySettings()
     private var hotKeyWindow: HotKeySettingsWindowController?
     private let holdSelector = HoldTextSelector()
+    private let copyTwice = CopyTwiceWatcher()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = Self.makeMainMenu()
@@ -17,7 +18,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.delegate = self
         statusItem.menu = menu
 
+        holdSelector.onTranslate = { TranslationWindowController.shared.show($0) }
         holdSelector.start()
+        copyTwice.onTrigger = { TranslationWindowController.shared.translateClipboard() }
+        copyTwice.start()
+        hotKeySettings.onHoldRecording = { [weak self] isRecording in self?.holdSelector.isPaused = isRecording }
 
         lid.onChange = { [weak self] in self?.updateIcon() }
         lid.syncWithSystem()
@@ -59,6 +64,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         switch action {
         case .captureArea: captureArea()
         case .captureText: captureText()
+        case .translateArea: translateArea()
         case .toggleLid: toggleLid()
         }
     }
@@ -114,16 +120,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(item("Снимок области", #selector(captureArea), hotKey: HotKeyAction.captureArea.hotKey))
         menu.addItem(item("Скопировать текст с экрана", #selector(captureText), hotKey: HotKeyAction.captureText.hotKey))
         menu.addItem(item("Распознать текст из буфера", #selector(textFromClipboard)))
-        let hold = NSMenuItem(title: "Выделять текст удержанием", action: nil, keyEquivalent: "")
-        let holdMenu = NSMenu()
-        for option in HoldModifiers.allCases {
-            let entry = item(option.title, #selector(pickHoldModifiers(_:)))
-            entry.tag = option.rawValue
-            entry.state = HoldModifiers.current == option ? .on : .off
-            holdMenu.addItem(entry)
-        }
-        hold.submenu = holdMenu
+        let hold = item("Выделять текст удержанием \(HoldKeys.display(HoldKeys.current ?? HoldKeys.defaultFlags))", #selector(toggleHold))
+        hold.state = HoldKeys.current == nil ? .off : .on
         menu.addItem(hold)
+
+        menu.addItem(.separator())
+        menu.addItem(item("Перевести текст с экрана", #selector(translateArea), hotKey: HotKeyAction.translateArea.hotKey))
+        menu.addItem(item("Перевести из буфера", #selector(translateClipboard)))
+        let twice = item("Переводить по двойному ⌘C", #selector(toggleCopyTwice))
+        twice.state = CopyTwiceWatcher.isEnabled ? .on : .off
+        menu.addItem(twice)
+
+        menu.addItem(.separator())
         menu.addItem(item("Открыть картинку…", #selector(openImage)))
         menu.addItem(item("Горячие клавиши…", #selector(showHotKeys)))
 
@@ -176,8 +184,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         Capture.area { [weak self] image in self?.recognizeAndCopy(image) }
     }
 
-    @objc private func pickHoldModifiers(_ sender: NSMenuItem) {
-        HoldModifiers.current = HoldModifiers(rawValue: sender.tag) ?? .off
+    @objc private func toggleHold() {
+        HoldKeys.current = HoldKeys.current == nil ? HoldKeys.defaultFlags : nil
+        hotKeySettings.reloadHold()
+    }
+
+    @objc private func translateArea() {
+        Capture.area { TranslationWindowController.shared.translateImage($0) }
+    }
+
+    @objc private func translateClipboard() {
+        TranslationWindowController.shared.translateClipboard()
+    }
+
+    @objc private func toggleCopyTwice() {
+        CopyTwiceWatcher.isEnabled.toggle()
+        hotKeySettings.objectWillChange.send()
     }
 
     @objc private func textFromClipboard() {

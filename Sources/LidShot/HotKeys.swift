@@ -81,6 +81,7 @@ struct HotKey: Codable, Equatable {
 enum HotKeyAction: String, CaseIterable, Identifiable {
     case captureArea
     case captureText
+    case translateArea
     case toggleLid
 
     var id: String { rawValue }
@@ -89,6 +90,7 @@ enum HotKeyAction: String, CaseIterable, Identifiable {
         switch self {
         case .captureArea: "Снимок области"
         case .captureText: "Текст с экрана"
+        case .translateArea: "Перевод с экрана"
         case .toggleLid: "Режим закрытой крышки"
         }
     }
@@ -97,6 +99,7 @@ enum HotKeyAction: String, CaseIterable, Identifiable {
         switch self {
         case .captureArea: HotKey(keyCode: kVK_ANSI_4, modifiers: optionKey | shiftKey)
         case .captureText: HotKey(keyCode: kVK_ANSI_2, modifiers: optionKey | shiftKey)
+        case .translateArea: HotKey(keyCode: kVK_ANSI_T, modifiers: optionKey | shiftKey)
         case .toggleLid: HotKey(keyCode: kVK_ANSI_L, modifiers: optionKey | shiftKey)
         }
     }

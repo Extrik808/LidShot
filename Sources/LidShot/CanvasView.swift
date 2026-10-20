@@ -523,6 +523,7 @@ final class CanvasView: NSView, NSTextFieldDelegate, ImageAnalysisOverlayViewDel
         if let tiff = NSImage(data: png)?.tiffRepresentation {
             pasteboard.setData(tiff, forType: .tiff)
         }
+        Clipboard.ownChangeCount = pasteboard.changeCount
         onStatus?("Скопировано в буфер обмена")
     }
 
@@ -574,6 +575,7 @@ final class CanvasView: NSView, NSTextFieldDelegate, ImageAnalysisOverlayViewDel
                 let pasteboard = NSPasteboard.general
                 pasteboard.clearContents()
                 pasteboard.setString(url.absoluteString, forType: .string)
+                Clipboard.ownChangeCount = pasteboard.changeCount
                 onStatus?("Ссылка скопирована: \(url.absoluteString) — действует \(expiry.title)")
             case .failure(let error):
                 NSSound.beep()
@@ -602,6 +604,14 @@ final class CanvasView: NSView, NSTextFieldDelegate, ImageAnalysisOverlayViewDel
             Clipboard.copy(trimmed)
             onStatus?("Текст скопирован · строк: \(trimmed.split(separator: "\n").count)")
         }
+    }
+
+    func translateAllText() {
+        guard let png = renderPNG(), let rendered = NSImage(data: png) else {
+            NSSound.beep()
+            return
+        }
+        TranslationWindowController.shared.translateImage(rendered)
     }
 
     private func startLiveText() {

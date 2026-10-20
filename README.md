@@ -106,7 +106,26 @@ Recognition runs on the Mac with Apple's Vision framework. Nothing is uploaded. 
   **⌘C** copies the selection, and **Esc** goes back to drawing. The document button (or **⇧⌘C**) copies all the
   text on the image.
 
-All three shortcuts can be changed or turned off in «Горячие клавиши…».
+## Translation
+
+LidShot translates with Apple's built-in translator (macOS 15 or later). It runs on the Mac, needs no account or
+key, and works offline once the language packs are downloaded. The first translation for a language pair asks to
+download its pack.
+
+- **Double ⌘C**: copy text twice quickly in any app, and a translation window opens next to the cursor. If you
+  copied an image (for example, a photo in Slack), LidShot reads the text on it first.
+- **⌥⇧T** («Перевести текст с экрана»): drag over an area, and its text is recognised and translated.
+- While holding **⌥⌘** to select text, also press **⇧**: the selection is translated instead of copied.
+- In the editor, the speech-bubble button translates all text on the image.
+- The window guesses the language. Russian goes to English, and everything else goes to your system language.
+  Pick another target language from the list, or swap the two with the arrows button. **⌘↩** copies the
+  translation and closes the window.
+
+## Shortcuts
+
+Every shortcut can be changed or turned off in «Горячие клавиши…». That includes the hold combination for text
+selection: click its field, hold any two or more of ⌘ ⌥ ⌃ ⇧, and let go. Double ⌘C can be turned off there too,
+or in the menu.
 
 ## Build from source
 

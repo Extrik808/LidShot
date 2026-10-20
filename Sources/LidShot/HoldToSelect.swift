@@ -2,42 +2,46 @@ import AppKit
 import ScreenCaptureKit
 import VisionKit
 
-enum HoldModifiers: Int, CaseIterable {
-    case off = 0
-    case optionCommand = 1
-    case controlOption = 2
-    case controlCommand = 3
+enum HoldKeys {
+    static let allowed: NSEvent.ModifierFlags = [.command, .option, .control, .shift]
+    static let defaultFlags: NSEvent.ModifierFlags = [.option, .command]
 
-    var flags: NSEvent.ModifierFlags {
-        switch self {
-        case .off: []
-        case .optionCommand: [.option, .command]
-        case .controlOption: [.control, .option]
-        case .controlCommand: [.control, .command]
-        }
-    }
-
-    var title: String {
-        switch self {
-        case .off: "Выключено"
-        case .optionCommand: "⌥⌘"
-        case .controlOption: "⌃⌥"
-        case .controlCommand: "⌃⌘"
-        }
-    }
-
-    static var current: HoldModifiers {
+    static var current: NSEvent.ModifierFlags? {
         get {
-            guard UserDefaults.standard.object(forKey: "holdModifiers") != nil else { return .optionCommand }
-            return HoldModifiers(rawValue: UserDefaults.standard.integer(forKey: "holdModifiers")) ?? .optionCommand
+            let defaults = UserDefaults.standard
+            if defaults.object(forKey: "holdKeys") != nil {
+                let flags = NSEvent.ModifierFlags(rawValue: UInt(defaults.integer(forKey: "holdKeys"))).intersection(allowed)
+                return flags.isEmpty ? nil : flags
+            }
+            if defaults.object(forKey: "holdModifiers") != nil, defaults.integer(forKey: "holdModifiers") == 0 {
+                return nil
+            }
+            return defaultFlags
         }
-        set { UserDefaults.standard.set(newValue.rawValue, forKey: "holdModifiers") }
+        set {
+            UserDefaults.standard.set(Int(newValue?.intersection(allowed).rawValue ?? 0), forKey: "holdKeys")
+        }
+    }
+
+    static func display(_ flags: NSEvent.ModifierFlags?) -> String {
+        guard let flags, !flags.isEmpty else { return "Не задано" }
+        var result = ""
+        if flags.contains(.control) { result += "⌃" }
+        if flags.contains(.option) { result += "⌥" }
+        if flags.contains(.shift) { result += "⇧" }
+        if flags.contains(.command) { result += "⌘" }
+        return result
+    }
+
+    static var translateModifierAvailable: Bool {
+        !(current ?? []).contains(.shift)
     }
 }
 
 final class HoldTextSelector {
     private static let holdDelay: TimeInterval = 0.35
-    private static let watched: NSEvent.ModifierFlags = [.command, .option, .control, .shift]
+    var onTranslate: ((String) -> Void)?
+    var isPaused = false
 
     private var timer: Timer?
     private var heldSince: Date?
@@ -54,9 +58,9 @@ final class HoldTextSelector {
     }
 
     private func tick() {
-        let target = HoldModifiers.current.flags
-        let pressed = NSEvent.modifierFlags.intersection(Self.watched)
-        let isHeld = !target.isEmpty && pressed == target
+        let target = HoldKeys.current ?? []
+        let pressed = NSEvent.modifierFlags.intersection(HoldKeys.allowed)
+        let isHeld = !isPaused && !target.isEmpty && pressed == target
 
         if isHeld {
             if heldSince == nil {
@@ -111,11 +115,16 @@ final class HoldTextSelector {
     private func finish(copy: Bool) {
         guard let panel else { return }
         self.panel = nil
-        if copy, let text = panel.takeSelectedText(), !text.isEmpty {
+        let translate = HoldKeys.translateModifierAvailable && NSEvent.modifierFlags.contains(.shift)
+        let text = copy ? panel.takeSelectedText() : nil
+        panel.orderOut(nil)
+        guard let text, !text.isEmpty else { return }
+        if translate, let onTranslate {
+            onTranslate(text)
+        } else {
             Clipboard.copy(text)
             Toast.show("Текст скопирован", detail: text)
         }
-        panel.orderOut(nil)
     }
 }
 
@@ -181,7 +190,9 @@ final class FrozenScreenPanel: NSPanel, ImageAnalysisOverlayViewDelegate {
                 guard let self, !Task.isCancelled else { return }
                 overlay.analysis = analysis
                 setHint(analysis.hasResults(for: .text)
-                    ? "Выделите текст мышью и отпустите клавиши — он скопируется"
+                    ? (HoldKeys.translateModifierAvailable
+                        ? "Выделите текст и отпустите клавиши — скопируется. Нажмите ⇧ — переведётся"
+                        : "Выделите текст мышью и отпустите клавиши — он скопируется")
                     : "Текст не найден")
             } catch {
                 self?.setHint("Не удалось распознать текст")

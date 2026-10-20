@@ -6,6 +6,13 @@ final class HotKeySettings: ObservableObject {
     @Published private(set) var keys: [HotKeyAction: HotKey] = [:]
     @Published private(set) var recording: HotKeyAction?
     @Published private(set) var failed: Set<HotKeyAction> = []
+    @Published private(set) var holdKeys: NSEvent.ModifierFlags? = HoldKeys.current
+    @Published private(set) var recordingHold = false
+    @Published private(set) var holdPreview: NSEvent.ModifierFlags = []
+    @Published private(set) var holdError: String?
+
+    var onHoldRecording: ((Bool) -> Void)?
+    private var holdMonitor: Any?
 
     var onSuspend: (() -> Void)?
     var onResume: (() -> Set<HotKeyAction>)?
@@ -16,8 +23,80 @@ final class HotKeySettings: ObservableObject {
         reload()
     }
 
+    var copyTwiceEnabled: Bool {
+        get { CopyTwiceWatcher.isEnabled }
+        set {
+            CopyTwiceWatcher.isEnabled = newValue
+            objectWillChange.send()
+        }
+    }
+
+    func reloadHold() {
+        holdKeys = HoldKeys.current
+    }
+
+    func startHoldRecording() {
+        stopRecording()
+        stopHoldRecording()
+        recordingHold = true
+        holdPreview = []
+        holdError = nil
+        onHoldRecording?(true)
+        holdMonitor = NSEvent.addLocalMonitorForEvents(matching: [.flagsChanged, .keyDown]) { [weak self] event in
+            self?.handleHold(event)
+            return nil
+        }
+    }
+
+    func stopHoldRecording() {
+        if let holdMonitor {
+            NSEvent.removeMonitor(holdMonitor)
+        }
+        holdMonitor = nil
+        guard recordingHold else { return }
+        recordingHold = false
+        holdPreview = []
+        onHoldRecording?(false)
+    }
+
+    func clearHold() {
+        stopHoldRecording()
+        HoldKeys.current = nil
+        reloadHold()
+    }
+
+    private func handleHold(_ event: NSEvent) {
+        if event.type == .keyDown {
+            if Int(event.keyCode) == kVK_Escape {
+                stopHoldRecording()
+            } else {
+                NSSound.beep()
+                holdError = "Только модификаторы: ⌘ ⌥ ⌃ ⇧, без обычных клавиш"
+            }
+            return
+        }
+        let pressed = event.modifierFlags.intersection(HoldKeys.allowed)
+        if !pressed.isEmpty {
+            holdPreview.formUnion(pressed)
+            return
+        }
+        let chosen = holdPreview
+        holdPreview = []
+        guard !chosen.isEmpty else { return }
+        guard chosen.rawValue.nonzeroBitCount >= 2 else {
+            NSSound.beep()
+            holdError = "Нужно минимум два модификатора, иначе будет срабатывать случайно"
+            return
+        }
+        HoldKeys.current = chosen
+        holdError = nil
+        reloadHold()
+        stopHoldRecording()
+    }
+
     func startRecording(_ action: HotKeyAction) {
         stopRecording()
+        stopHoldRecording()
         recording = action
         onSuspend?()
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
@@ -45,6 +124,10 @@ final class HotKeySettings: ObservableObject {
 
     func resetDefaults() {
         stopRecording()
+        stopHoldRecording()
+        HoldKeys.current = HoldKeys.defaultFlags
+        CopyTwiceWatcher.isEnabled = true
+        reloadHold()
         HotKeyAction.allCases.forEach { $0.hotKey = $0.defaultKey }
         onSuspend?()
         resume()
@@ -126,6 +209,42 @@ struct HotKeySettingsView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
+            Divider()
+
+            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
+                GridRow {
+                    Text("Выделение текста (удерживать)")
+                    holdRecorderButton
+                    Button {
+                        settings.clearHold()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Отключить")
+                    .opacity(settings.holdKeys == nil ? 0 : 1)
+                }
+                if let error = settings.holdError {
+                    GridRow {
+                        Color.clear.frame(width: 0, height: 0)
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                            .gridCellColumns(2)
+                    }
+                }
+            }
+
+            Text(holdHint)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Toggle("Переводить скопированное двойным ⌘C", isOn: Binding(
+                get: { settings.copyTwiceEnabled },
+                set: { settings.copyTwiceEnabled = $0 }
+            ))
+
             HStack {
                 Spacer()
                 Button("По умолчанию") { settings.resetDefaults() }
@@ -133,7 +252,36 @@ struct HotKeySettingsView: View {
         }
         .padding(20)
         .frame(width: 440)
-        .onDisappear { settings.stopRecording() }
+        .onDisappear {
+            settings.stopRecording()
+            settings.stopHoldRecording()
+        }
+    }
+
+    private var holdHint: String {
+        let base = "Удерживайте сочетание — экран замрёт, выделите текст мышью и отпустите клавиши: текст скопируется."
+        let translate = (settings.holdKeys ?? []).contains(.shift) ? "" : " Нажмите ⇧ во время выделения — текст переведётся."
+        return base + translate + " Для записи нажмите поле, зажмите модификаторы и отпустите."
+    }
+
+    private var holdRecorderButton: some View {
+        let title: String
+        if settings.recordingHold {
+            title = settings.holdPreview.isEmpty ? "Зажмите модификаторы…" : HoldKeys.display(settings.holdPreview)
+        } else {
+            title = HoldKeys.display(settings.holdKeys)
+        }
+        return Button {
+            if settings.recordingHold {
+                settings.stopHoldRecording()
+            } else {
+                settings.startHoldRecording()
+            }
+        } label: {
+            Text(title)
+                .frame(minWidth: 150)
+                .foregroundStyle(settings.recordingHold ? Color.accentColor : (settings.holdKeys == nil ? .secondary : .primary))
+        }
     }
 
     private func recorderButton(for action: HotKeyAction) -> some View {
@@ -181,5 +329,6 @@ final class HotKeySettingsWindowController: NSWindowController, NSWindowDelegate
 
     func windowWillClose(_ notification: Notification) {
         settings.stopRecording()
+        settings.stopHoldRecording()
     }
 }

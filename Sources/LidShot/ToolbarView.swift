@@ -77,6 +77,8 @@ struct ToolbarView: View {
                 .help("Повторить (⇧⌘Z)")
             Button { canvas.saveImage(nil) } label: { Image(systemName: "square.and.arrow.down") }
                 .help("Сохранить в файл (⌘S)")
+            Button { canvas.translateAllText() } label: { Image(systemName: "character.bubble") }
+                .help("Перевести текст с картинки")
             Button { canvas.copyAllText() } label: { Image(systemName: "doc.plaintext") }
                 .help("Скопировать весь текст с картинки (⇧⌘C)")
             Button { canvas.copy(nil) } label: { Image(systemName: "doc.on.doc") }
