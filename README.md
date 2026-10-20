@@ -3,7 +3,8 @@
 <h1 align="center">LidShot</h1>
 
 <p align="center">
-  A small macOS menu bar app that keeps a MacBook awake with the lid closed and takes screenshots you can annotate.
+  A small macOS menu bar app that keeps a MacBook awake with the lid closed, takes screenshots you can annotate,
+  copies text from anything on screen, and translates right inside input fields. Everything runs on the Mac.
 </p>
 
 The interface is in Russian.
@@ -49,7 +50,9 @@ xattr -dr com.apple.quarantine /Applications/LidShot.app
 1. **Screen Recording.** The first screenshot asks for this permission. Turn LidShot on in
    System Settings → Privacy & Security → Screen & System Audio Recording, then quit and reopen LidShot.
    If LidShot is not listed, click **+** and pick `/Applications/LidShot.app`.
-2. **Launch at login** is in the menu: «Запускать при входе».
+2. **Accessibility.** Translating inside input fields needs it, both the button and **⌥⇧E**. Turn LidShot on in
+   System Settings → Privacy & Security → Accessibility.
+3. **Launch at login** is in the menu: «Запускать при входе».
 
 ## Closed-lid mode
 
@@ -95,8 +98,8 @@ LidShot can pull text out of any picture: a screenshot, a photo someone posted i
 Recognition runs on the Mac with Apple's Vision framework. Nothing is uploaded. It reads Russian and English.
 
 - **Hold ⌥⌘** anywhere: the screen freezes for a moment, and you can select text with the mouse right where it
-  is, in Slack, a video, a picture or a PDF. Release the keys and the selection is copied. Esc cancels. The keys
-  can be changed or the feature turned off in «Выделять текст удержанием».
+  is, in Slack, a video, a picture or a PDF. Release the keys and the selection is copied. Esc cancels. Change the keys
+  in «Горячие клавиши…», or turn the feature off with the menu item «Выделять текст удержанием».
 - «Распознать текст из буфера»: copy an image first (for example, right-click a photo in Slack → Copy image),
   then pick this menu item. The text replaces the image in the clipboard.
 - «Открыть картинку…» opens an image file in the editor.
@@ -108,30 +111,45 @@ Recognition runs on the Mac with Apple's Vision framework. Nothing is uploaded. 
 
 LidShot translates with Apple's built-in translator (macOS 15 or later). It runs on the Mac, needs no account or
 key, and works offline once the language packs are downloaded. The first translation for a language pair asks to
-download its pack.
+download its pack. Russian text is translated into English. Anything else is translated into your system language,
+so English becomes Russian. Short Latin-script text, such as a single word, counts as English.
+
+### In input fields
+
+- **Translate button**: like DeepL, a small round button appears in the corner of the input field you are typing
+  in, once it has some text. Click it, and the text is replaced with its translation. If part of the text is
+  selected, only that part is translated. Right-click the button to hide it in that app. The menu item «Кнопка
+  перевода в полях ввода» turns it off, or back on for every app. It works in Slack, Mail, Telegram, Safari and
+  Chromium browsers (Chrome, Arc, Brave, Edge, Yandex, Opera, Vivaldi). It never appears in password fields,
+  address bars, terminals or code editors.
+- **⌥⇧E** («Перевести текст в поле ввода») does the same from the keyboard.
+- Both need the Accessibility permission, because LidShot presses ⌘A, ⌘C and ⌘V for you. Your clipboard is
+  restored afterwards. In code editors that copy the whole line when nothing is selected, select the text first.
+- **English style** («Стиль английского»): with Apple Intelligence turned on (macOS 26 or later), English
+  translations are rewritten to sound natural, either casual for chats or business for email. Without Apple
+  Intelligence you get the plain translator output. The submenu shows whether the model is ready.
+
+### Reading
 
 - **Double ⌘C**: copy text twice quickly in any app, and a translation window opens next to the cursor. If you
   copied an image (for example, a photo in Slack), LidShot reads the text on it first.
 - **⌥⇧T** («Перевести текст с экрана»): drag over an area, and its text is recognised and translated.
-- While holding **⌥⌘** to select text, also press **⇧**: the selection is translated instead of copied.
-- In the editor, the speech-bubble button translates all text on the image.
-- **⌥⇧E** («Перевести текст в поле ввода»): type a message in any input field (Slack, mail, a browser form) and
-  press the shortcut. The text in the field, or only the selected part, is replaced with its translation. Russian
-  becomes English, and English becomes Russian. This needs the Accessibility permission (System Settings → Privacy &
-  Security → Accessibility), because LidShot presses ⌘A, ⌘C and ⌘V for you. Your clipboard is restored afterwards.
-- **Translate button in input fields**: like DeepL, a small round button appears in the corner of the input
-  field you are typing in, once it has some text. Click it to replace the text with its translation. Right-click it
-  to hide it in that app. The menu item «Кнопка перевода в полях ввода» turns it off, or back on for every app. It
-  never appears in password fields, terminals or code editors, and it also needs the Accessibility permission.
-- **English style** («Стиль английского»): with Apple Intelligence turned on (macOS 26 or later), English
-  translations are rewritten to sound natural, either casual for chats or business for email. Without Apple
-  Intelligence you get the plain translator output.
-- The window guesses the language. Russian goes to English, and everything else goes to your system language.
-  Short Latin-script text, such as a single word, counts as English.
-  Pick another target language from the list, or swap the two with the arrows button. **⌘↩** copies the
-  translation and closes the window.
+- While holding **⌥⌘** to select text on screen, also press **⇧**: the selection is translated instead of copied.
+- In the screenshot editor, the speech-bubble button translates all text on the image.
+- In the translation window, pick another target language from the list, or swap the two with the arrows button.
+  **⌘↩** copies the translation and closes the window.
 
 ## Shortcuts
+
+| Action | Default |
+|---|---|
+| Screenshot of an area | ⌥⇧4 |
+| Closed-lid mode on/off | ⌥⇧L |
+| Select text anywhere on screen (hold) | ⌥⌘ |
+| Translate the selection while holding | ⇧ |
+| Translate text in the input field | ⌥⇧E |
+| Translate text from an area of the screen | ⌥⇧T |
+| Translate what you copied | ⌘C twice |
 
 Every shortcut can be changed or turned off in «Горячие клавиши…». That includes the hold combination for text
 selection: click its field, hold any two or more of ⌘ ⌥ ⌃ ⇧, and let go. Double ⌘C can be turned off there too,
