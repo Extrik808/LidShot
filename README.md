@@ -115,7 +115,15 @@ download its pack.
 - **⌥⇧T** («Перевести текст с экрана»): drag over an area, and its text is recognised and translated.
 - While holding **⌥⌘** to select text, also press **⇧**: the selection is translated instead of copied.
 - In the editor, the speech-bubble button translates all text on the image.
+- **⌥⇧E** («Перевести текст в поле ввода»): type a message in any input field (Slack, mail, a browser form) and
+  press the shortcut. The text in the field, or only the selected part, is replaced with its translation. Russian
+  becomes English, and English becomes Russian. This needs the Accessibility permission (System Settings → Privacy &
+  Security → Accessibility), because LidShot presses ⌘A, ⌘C and ⌘V for you. Your clipboard is restored afterwards.
+- **English style** («Стиль английского»): with Apple Intelligence turned on (macOS 26 or later), English
+  translations are rewritten to sound natural, either casual for chats or business for email. Without Apple
+  Intelligence you get the plain translator output.
 - The window guesses the language. Russian goes to English, and everything else goes to your system language.
+  Short Latin-script text, such as a single word, counts as English.
   Pick another target language from the list, or swap the two with the arrows button. **⌘↩** copies the
   translation and closes the window.
 

@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var hotKeyWindow: HotKeySettingsWindowController?
     private let holdSelector = HoldTextSelector()
     private let copyTwice = CopyTwiceWatcher()
+    private let inPlace = InPlaceTranslator()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = Self.makeMainMenu()
@@ -64,6 +65,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         switch action {
         case .captureArea: captureArea()
         case .translateArea: translateArea()
+        case .translateInPlace: inPlace.run()
         case .toggleLid: toggleLid()
         }
     }
@@ -125,6 +127,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
         menu.addItem(item("Перевести текст с экрана", #selector(translateArea), hotKey: HotKeyAction.translateArea.hotKey))
         menu.addItem(item("Перевести из буфера", #selector(translateClipboard)))
+        menu.addItem(item("Перевести текст в поле ввода", #selector(translateInPlace), hotKey: HotKeyAction.translateInPlace.hotKey))
+        let style = NSMenuItem(title: "Стиль английского: \(EnglishStyle.current.title)", action: nil, keyEquivalent: "")
+        let styleMenu = NSMenu()
+        styleMenu.autoenablesItems = false
+        for option in EnglishStyle.allCases {
+            let entry = item(option.title, #selector(pickEnglishStyle(_:)))
+            entry.representedObject = option.rawValue
+            entry.state = EnglishStyle.current == option ? .on : .off
+            styleMenu.addItem(entry)
+        }
+        styleMenu.addItem(.separator())
+        let modelState = NSMenuItem(title: EnglishStyle.modelStatus, action: nil, keyEquivalent: "")
+        modelState.isEnabled = false
+        styleMenu.addItem(modelState)
+        style.submenu = styleMenu
+        menu.addItem(style)
         let twice = item("Переводить по двойному ⌘C", #selector(toggleCopyTwice))
         twice.state = CopyTwiceWatcher.isEnabled ? .on : .off
         menu.addItem(twice)
@@ -189,6 +207,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func translateClipboard() {
         TranslationWindowController.shared.translateClipboard()
+    }
+
+    @objc private func translateInPlace() {
+        inPlace.run()
+    }
+
+    @objc private func pickEnglishStyle(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String, let style = EnglishStyle(rawValue: raw) else { return }
+        EnglishStyle.current = style
     }
 
     @objc private func toggleCopyTwice() {

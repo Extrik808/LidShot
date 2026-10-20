@@ -95,7 +95,7 @@ final class TranslationModel: ObservableObject {
             isWorking = false
             return
         }
-        detectedSource = Self.detect(text)
+        detectedSource = LanguageDetector.detect(text)
         if !targetChosenByUser {
             target = detectedSource == TargetLanguage.home.id ? .english : .home
         }
@@ -131,6 +131,12 @@ final class TranslationModel: ObservableObject {
             let response = try await session.translate(text)
             guard text == sourceText.trimmingCharacters(in: .whitespacesAndNewlines) else { return }
             translatedText = response.targetText
+            if target == .english, EnglishStyle.current.canPolish {
+                status = "Делаю английский живее…"
+                let polished = await EnglishStyle.current.polish(response.targetText, original: text)
+                guard text == sourceText.trimmingCharacters(in: .whitespacesAndNewlines) else { return }
+                translatedText = polished
+            }
             finished(nil)
         } catch {
             finished(error)
@@ -147,15 +153,6 @@ final class TranslationModel: ObservableObject {
         }
     }
 
-    private static func detect(_ text: String) -> String? {
-        let recognizer = NLLanguageRecognizer()
-        recognizer.processString(text)
-        guard let language = recognizer.dominantLanguage else { return nil }
-        if language == .simplifiedChinese || language == .traditionalChinese {
-            return "zh-Hans"
-        }
-        return TargetLanguage.find(language.rawValue)?.id ?? language.rawValue
-    }
 }
 
 struct TranslationView: View {
@@ -324,6 +321,11 @@ final class CopyTwiceWatcher {
     private var timer: Timer?
     private var lastCount = NSPasteboard.general.changeCount
     private var lastCopy: Date?
+    private static var suppressedUntil = Date.distantPast
+
+    static func suppress(for seconds: TimeInterval) {
+        suppressedUntil = Date().addingTimeInterval(seconds)
+    }
 
     static var isEnabled: Bool {
         get { UserDefaults.standard.object(forKey: "copyTwiceTranslate") as? Bool ?? true }
@@ -341,7 +343,7 @@ final class CopyTwiceWatcher {
         let count = NSPasteboard.general.changeCount
         guard count != lastCount else { return }
         lastCount = count
-        guard Self.isEnabled, count != Clipboard.ownChangeCount, NSEvent.modifierFlags.contains(.command) else {
+        guard Self.isEnabled, Date() > Self.suppressedUntil, count != Clipboard.ownChangeCount, NSEvent.modifierFlags.contains(.command) else {
             lastCopy = nil
             return
         }
