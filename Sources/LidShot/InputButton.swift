@@ -18,7 +18,7 @@ final class InputButtonController {
     private let translator: InPlaceTranslator
     private var timer: Timer?
     private var panel: InputButtonPanel?
-    private var electronPids: Set<pid_t> = []
+    private static var preparedPids: Set<pid_t> = []
 
     static var isEnabled: Bool {
         get { UserDefaults.standard.object(forKey: "inputButton") as? Bool ?? true }
@@ -56,7 +56,7 @@ final class InputButtonController {
             hide()
             return
         }
-        enableAccessibility(app)
+        Self.enableAccessibility(app)
         guard let anchor = Self.anchor(in: app.processIdentifier) else {
             hide()
             return
@@ -64,10 +64,10 @@ final class InputButtonController {
         show(at: anchor, bundleID: bundleID)
     }
 
-    private func enableAccessibility(_ app: NSRunningApplication) {
+    static func enableAccessibility(_ app: NSRunningApplication) {
         let pid = app.processIdentifier
-        guard !electronPids.contains(pid) else { return }
-        electronPids.insert(pid)
+        guard !preparedPids.contains(pid) else { return }
+        preparedPids.insert(pid)
         let element = AXUIElementCreateApplication(pid)
         AXUIElementSetAttributeValue(element, "AXManualAccessibility" as CFString, kCFBooleanTrue)
         if Self.chromiumBrowsers.contains(app.bundleIdentifier ?? "") {
@@ -97,7 +97,7 @@ final class InputButtonController {
     }
 
     private func makePanel() -> InputButtonPanel {
-        let panel = InputButtonPanel()
+        let panel = InputButtonPanel(toolTip: "Перевести текст в поле (правый клик — скрыть для приложения)")
         panel.onClick = { [weak self] in
             guard let self else { return }
             panel.setWorking(true)
@@ -117,15 +117,7 @@ final class InputButtonController {
         guard let element: AXUIElement = attribute(app, kAXFocusedUIElementAttribute) else { return nil }
         let role: String = attribute(element, kAXRoleAttribute) ?? ""
         let subrole: String = attribute(element, kAXSubroleAttribute) ?? ""
-        guard subrole != "AXSecureTextField" else { return nil }
-        var editable = textRoles.contains(role)
-        if !editable {
-            var settable: DarwinBoolean = false
-            editable = AXUIElementIsAttributeSettable(element, kAXValueAttribute as CFString, &settable) == .success
-                && settable.boolValue
-                && role != "AXSlider" && role != "AXCheckBox" && role != "AXRadioButton"
-        }
-        guard editable else { return nil }
+        guard subrole != "AXSecureTextField", isEditable(element, role: role) else { return nil }
         let value: String = attribute(element, kAXValueAttribute) ?? ""
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count >= 2, !looksLikeAddress(trimmed) else { return nil }
@@ -140,6 +132,14 @@ final class InputButtonController {
             return CGPoint(x: min(point.maxX + 34, cocoa.maxX - 4), y: point.minY - 30)
         }
         return nil
+    }
+
+    static func isEditable(_ element: AXUIElement, role: String) -> Bool {
+        if textRoles.contains(role) { return true }
+        var settable: DarwinBoolean = false
+        return AXUIElementIsAttributeSettable(element, kAXValueAttribute as CFString, &settable) == .success
+            && settable.boolValue
+            && role != "AXSlider" && role != "AXCheckBox" && role != "AXRadioButton"
     }
 
     private static func looksLikeAddress(_ text: String) -> Bool {
@@ -175,7 +175,7 @@ final class InputButtonController {
         return CGRect(x: rect.minX, y: primaryHeight - rect.maxY, width: rect.width, height: rect.height)
     }
 
-    private static func attribute<T>(_ element: AXUIElement, _ name: String) -> T? {
+    static func attribute<T>(_ element: AXUIElement, _ name: String) -> T? {
         var value: AnyObject?
         guard AXUIElementCopyAttributeValue(element, name as CFString, &value) == .success else { return nil }
         if T.self == AXUIElement.self || T.self == AXValue.self {
@@ -195,7 +195,7 @@ final class InputButtonPanel: NSPanel {
 
     var isMouseInside: Bool { NSMouseInRect(NSEvent.mouseLocation, frame, false) }
 
-    init() {
+    init(toolTip: String) {
         let size = CGSize(width: 28, height: 28)
         super.init(contentRect: CGRect(origin: .zero, size: size), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         isOpaque = false
@@ -219,7 +219,7 @@ final class InputButtonPanel: NSPanel {
         button.image = NSImage(systemSymbolName: "character.bubble", accessibilityDescription: "Перевести")
         button.contentTintColor = .controlAccentColor
         button.imageScaling = .scaleProportionallyDown
-        button.toolTip = "Перевести текст в поле (правый клик — скрыть для приложения)"
+        button.toolTip = toolTip
         button.target = self
         button.action = #selector(clicked)
         button.onRightClick = { [weak self] in self?.showMenu() }

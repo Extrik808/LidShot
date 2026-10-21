@@ -131,6 +131,12 @@ so English becomes Russian. Short Latin-script text, such as a single word, coun
 
 ### Reading
 
+- **Selection button**: select text with the mouse anywhere (drag, or double- or triple-click), and a small round
+  button appears next to the cursor. Click it, and the translation window opens with the selected text. It works in
+  browsers, PDFs, Slack, Telegram, Mail and other apps that let you select text. In input fields the input button
+  above is used instead. The button disappears when you click elsewhere, type, scroll, or after a few seconds.
+  Right-click it to hide it in that app. The menu item «Кнопка перевода выделенного текста» turns it off, or back on
+  for every app. It needs the Accessibility permission.
 - **Double ⌘C**: copy text twice quickly in any app, and a translation window opens next to the cursor. If you
   copied an image (for example, a photo in Slack), LidShot reads the text on it first.
 - **⌥⇧T** («Перевести текст с экрана»): drag over an area, and its text is recognised and translated.

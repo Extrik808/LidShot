@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let copyTwice = CopyTwiceWatcher()
     private let inPlace = InPlaceTranslator()
     private lazy var inputButton = InputButtonController(translator: inPlace)
+    private let selectionButton = SelectionButtonController()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = Self.makeMainMenu()
@@ -25,6 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         copyTwice.onTrigger = { TranslationWindowController.shared.translateClipboard() }
         copyTwice.start()
         inputButton.start()
+        selectionButton.start()
         hotKeySettings.onHoldRecording = { [weak self] isRecording in self?.holdSelector.isPaused = isRecording }
 
         lid.onChange = { [weak self] in self?.updateIcon() }
@@ -133,6 +135,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let button = item("Кнопка перевода в полях ввода", #selector(toggleInputButton))
         button.state = InputButtonController.isEnabled && AXIsProcessTrusted() ? .on : .off
         menu.addItem(button)
+        let selection = item("Кнопка перевода выделенного текста", #selector(toggleSelectionButton))
+        selection.state = SelectionButtonController.isEnabled && AXIsProcessTrusted() ? .on : .off
+        menu.addItem(selection)
         let style = NSMenuItem(title: "Стиль английского: \(EnglishStyle.current.title)", action: nil, keyEquivalent: "")
         let styleMenu = NSMenu()
         styleMenu.autoenablesItems = false
@@ -222,6 +227,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         InputButtonController.isEnabled = true
         InputButtonController.hiddenApps = []
+        if !trusted {
+            Toast.show("Включите LidShot в «Универсальном доступе»", detail: "Системные настройки → Конфиденциальность и безопасность → Универсальный доступ")
+        }
+    }
+
+    @objc private func toggleSelectionButton() {
+        let trusted = AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
+        if SelectionButtonController.isEnabled, trusted, SelectionButtonController.hiddenApps.isEmpty {
+            SelectionButtonController.isEnabled = false
+            return
+        }
+        SelectionButtonController.isEnabled = true
+        SelectionButtonController.hiddenApps = []
         if !trusted {
             Toast.show("Включите LidShot в «Универсальном доступе»", detail: "Системные настройки → Конфиденциальность и безопасность → Универсальный доступ")
         }
