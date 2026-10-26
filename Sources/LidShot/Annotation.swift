@@ -1,7 +1,7 @@
 import AppKit
 
 enum Tool: String, CaseIterable, Identifiable {
-    case select, arrow, line, rect, ellipse, pen, highlighter, text, counter, pixelate, crop
+    case select, arrow, line, rect, ellipse, pen, highlighter, text, counter, pixelate, blur, crop
 
     var id: String { rawValue }
 
@@ -17,6 +17,7 @@ enum Tool: String, CaseIterable, Identifiable {
         case .text: "textformat"
         case .counter: "1.circle"
         case .pixelate: "square.grid.3x3.fill"
+        case .blur: "drop.halffull"
         case .crop: "crop"
         }
     }
@@ -33,6 +34,7 @@ enum Tool: String, CaseIterable, Identifiable {
         case .text: "Текст"
         case .counter: "Номер шага"
         case .pixelate: "Пикселизация"
+        case .blur: "Размытие"
         case .crop: "Обрезка"
         }
     }
@@ -49,12 +51,13 @@ enum Tool: String, CaseIterable, Identifiable {
         case .text: "t"
         case .counter: "n"
         case .pixelate: "b"
+        case .blur: "u"
         case .crop: "c"
         }
     }
 
     var usesTwoPoints: Bool {
-        [.arrow, .line, .rect, .ellipse, .pixelate, .crop].contains(self)
+        [.arrow, .line, .rect, .ellipse, .pixelate, .blur, .crop].contains(self)
     }
 
     var isFreehand: Bool {
@@ -87,7 +90,7 @@ struct Annotation: Identifiable {
         switch tool {
         case .arrow, .line:
             rect.insetBy(dx: -width * 3, dy: -width * 3)
-        case .rect, .ellipse, .pixelate, .crop:
+        case .rect, .ellipse, .pixelate, .blur, .crop:
             rect.insetBy(dx: -width / 2, dy: -width / 2)
         case .pen, .highlighter:
             Geometry.boundingBox(points).insetBy(dx: -strokeWidth / 2, dy: -strokeWidth / 2)
@@ -163,7 +166,7 @@ enum Geometry {
             let angle = (atan2(dy, dx) / step).rounded() * step
             let length = hypot(dx, dy)
             return CGPoint(x: anchor.x + cos(angle) * length, y: anchor.y + sin(angle) * length)
-        case .rect, .ellipse, .pixelate, .crop:
+        case .rect, .ellipse, .pixelate, .blur, .crop:
             let side = max(abs(dx), abs(dy))
             return CGPoint(x: anchor.x + (dx < 0 ? -side : side), y: anchor.y + (dy < 0 ? -side : side))
         default:

@@ -4,10 +4,12 @@ import CoreImage
 struct Renderer {
     let image: NSImage
     let pixelated: NSImage?
+    let blurred: NSImage?
 
     init(image: NSImage) {
         self.image = image
         pixelated = Renderer.makePixelated(image)
+        blurred = Renderer.makeBlurred(image)
     }
 
     func drawBase() {
@@ -43,17 +45,23 @@ struct Renderer {
         case .counter:
             drawCounter(a)
         case .pixelate:
-            NSBezierPath(rect: a.rect).addClip()
-            if let pixelated {
-                pixelated.draw(in: CGRect(origin: .zero, size: image.size))
-            } else {
-                NSColor.gray.setFill()
-                a.rect.fill()
-            }
+            drawMasked(pixelated, in: a.rect)
+        case .blur:
+            drawMasked(blurred, in: a.rect)
         case .crop:
             drawCropOverlay(a.rect)
         case .select:
             break
+        }
+    }
+
+    private func drawMasked(_ filtered: NSImage?, in rect: CGRect) {
+        NSBezierPath(rect: rect).addClip()
+        if let filtered {
+            filtered.draw(in: CGRect(origin: .zero, size: image.size))
+        } else {
+            NSColor.gray.setFill()
+            rect.fill()
         }
     }
 
@@ -189,6 +197,18 @@ struct Renderer {
         }
         path.line(to: points[points.count - 1])
         return path
+    }
+
+    static func makeBlurred(_ image: NSImage) -> NSImage? {
+        guard let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil),
+              let filter = CIFilter(name: "CIGaussianBlur") else { return nil }
+        let input = CIImage(cgImage: cg)
+        let pixelsPerPoint = image.size.width > 0 ? CGFloat(cg.width) / image.size.width : 1
+        filter.setValue(input.clampedToExtent(), forKey: kCIInputImageKey)
+        filter.setValue(max(pixelsPerPoint, 1) * 9, forKey: kCIInputRadiusKey)
+        guard let output = filter.outputImage?.cropped(to: input.extent),
+              let result = CIContext().createCGImage(output, from: input.extent) else { return nil }
+        return NSImage(cgImage: result, size: image.size)
     }
 
     static func makePixelated(_ image: NSImage) -> NSImage? {

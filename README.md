@@ -81,10 +81,12 @@ Press **⌥⇧4** and drag over an area. Press Space while selecting to capture 
 | Arrow | A | Text | T |
 | Line | L | Step number | N |
 | Rectangle | R | Pixelate (hide data) | B |
-| Ellipse | O | Crop | C |
-| Pen | P | | |
+| Ellipse | O | Blur (hide data) | U |
+| Pen | P | Crop | C |
 
 - Shift snaps lines to 45° and draws squares and circles.
+- With Select & move, drag over an empty part of the image to mark an area. A «Перевести» button appears next to it
+  and translates the text inside that area.
 - Picking a colour or width restyles the selected shape. Double-click text to edit it, and Delete removes a shape.
 - **Return** copies the image and closes the editor. **⌘C** copies, **⌘S** saves to a file, and **⌘Z / ⇧⌘Z**
   undo and redo.
@@ -104,7 +106,8 @@ Recognition runs on the Mac with Apple's Vision framework. Nothing is uploaded. 
   then pick this menu item. The text replaces the image in the clipboard.
 - «Открыть картинку…» opens an image file in the editor.
 - In the editor, the text button (or **X**) lets you select text on the image with the mouse, as in Preview.
-  **⌘C** copies the selection, and **Esc** goes back to drawing. The document button (or **⇧⌘C**) copies all the
+  **⌘C** copies the selection, the «Перевести» button next to it translates it (macOS 14 or later), and **Esc**
+  goes back to drawing. The document button (or **⇧⌘C**) copies all the
   text on the image.
 
 ## Translation

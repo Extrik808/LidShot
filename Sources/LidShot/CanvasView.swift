@@ -13,6 +13,7 @@ final class CanvasView: NSView, NSTextFieldDelegate, ImageAnalysisOverlayViewDel
         case creating
         case moving(CGPoint)
         case handle(isStart: Bool)
+        case marquee(CGPoint)
     }
 
     let image: NSImage
@@ -37,6 +38,9 @@ final class CanvasView: NSView, NSTextFieldDelegate, ImageAnalysisOverlayViewDel
     private var liveOverlay: ImageAnalysisOverlayView?
     private var liveTask: Task<Void, Never>?
     private var isRecognizing = false
+    private var marquee: CGRect? { didSet { needsDisplay = true } }
+    private var translateButton: NSButton?
+    private var translateAction: (() -> Void)?
 
     init(image: NSImage, state: EditorState) {
         self.image = image
@@ -47,6 +51,7 @@ final class CanvasView: NSView, NSTextFieldDelegate, ImageAnalysisOverlayViewDel
 
         state.$tool.dropFirst().sink { [weak self] tool in self?.toolChanged(to: tool) }.store(in: &cancellables)
         state.$liveText.dropFirst().removeDuplicates().sink { [weak self] isOn in
+            self?.clearRegionSelection()
             if isOn {
                 self?.startLiveText()
             } else {
@@ -128,6 +133,9 @@ final class CanvasView: NSView, NSTextFieldDelegate, ImageAnalysisOverlayViewDel
         if let index = selectedIndex {
             drawSelection(annotations[index])
         }
+        if let marquee {
+            drawMarquee(marquee)
+        }
         NSGraphicsContext.restoreGraphicsState()
     }
 
@@ -152,6 +160,17 @@ final class CanvasView: NSView, NSTextFieldDelegate, ImageAnalysisOverlayViewDel
         }
     }
 
+    private func drawMarquee(_ rect: CGRect) {
+        let s = scale
+        NSColor.controlAccentColor.withAlphaComponent(0.12).setFill()
+        rect.fill()
+        let outline = NSBezierPath(rect: rect)
+        outline.lineWidth = 1 / s
+        outline.setLineDash([5 / s, 3 / s], count: 2, phase: 0)
+        NSColor.controlAccentColor.setStroke()
+        outline.stroke()
+    }
+
     override func resetCursorRects() {
         let cursor: NSCursor = switch state.tool {
         case .select: .arrow
@@ -168,6 +187,7 @@ final class CanvasView: NSView, NSTextFieldDelegate, ImageAnalysisOverlayViewDel
     }
 
     override func mouseDown(with event: NSEvent) {
+        clearRegionSelection()
         if let liveOverlay {
             liveOverlay.resetSelection()
             return
@@ -195,6 +215,7 @@ final class CanvasView: NSView, NSTextFieldDelegate, ImageAnalysisOverlayViewDel
             }
             guard let hit = annotations.last(where: { $0.hitTest(p, tolerance: tolerance) }) else {
                 selectedID = nil
+                dragMode = .marquee(p)
                 return
             }
             selectedID = hit.id
@@ -262,6 +283,9 @@ final class CanvasView: NSView, NSTextFieldDelegate, ImageAnalysisOverlayViewDel
             } else {
                 annotations[index].end = p
             }
+        case .marquee(let anchor):
+            let rect = CGRect(x: min(anchor.x, raw.x), y: min(anchor.y, raw.y), width: abs(raw.x - anchor.x), height: abs(raw.y - anchor.y))
+            marquee = rect.intersection(viewport)
         case .none:
             break
         }
@@ -272,6 +296,10 @@ final class CanvasView: NSView, NSTextFieldDelegate, ImageAnalysisOverlayViewDel
             draft = nil
             dragMode = .none
         }
+        if case .marquee = dragMode {
+            finishMarquee()
+            return
+        }
         guard case .creating = dragMode, let d = draft else { return }
         if d.tool == .crop {
             applyCrop(d.rect)
@@ -281,6 +309,96 @@ final class CanvasView: NSView, NSTextFieldDelegate, ImageAnalysisOverlayViewDel
         guard meaningful else { return }
         pushUndo()
         annotations.append(d)
+    }
+
+    private func finishMarquee() {
+        guard let rect = marquee, rect.width * scale >= 12, rect.height * scale >= 12 else {
+            marquee = nil
+            return
+        }
+        showTranslateButton(at: toView(CGPoint(x: rect.maxX, y: rect.minY)), toolTip: "Перевести текст в выделенной области") { [weak self] in
+            self?.translateRegion(rect)
+        }
+        onStatus?("Область выделена — нажмите «Перевести». Esc — снять выделение")
+    }
+
+    private func translateRegion(_ rect: CGRect) {
+        clearRegionSelection()
+        guard let png = renderPNG(), let rendered = NSImage(data: png),
+              let cg = rendered.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            NSSound.beep()
+            return
+        }
+        let area = viewport
+        let ratio = CGFloat(cg.width) / area.width
+        let pixelRect = CGRect(
+            x: (rect.minX - area.minX) * ratio,
+            y: (area.maxY - rect.maxY) * ratio,
+            width: rect.width * ratio,
+            height: rect.height * ratio
+        ).integral
+        guard let cropped = cg.cropping(to: pixelRect) else {
+            NSSound.beep()
+            return
+        }
+        TranslationWindowController.shared.translateImage(NSImage(cgImage: cropped, size: rect.size))
+    }
+
+    private func showTranslateButton(at point: CGPoint, toolTip: String, action: @escaping () -> Void) {
+        let button = translateButton ?? makeTranslateButton()
+        button.toolTip = toolTip
+        translateAction = action
+        let size = button.fittingSize
+        let x = min(max(point.x + 6, 4), bounds.width - size.width - 4)
+        let y = min(max(point.y - size.height - 6, 4), bounds.height - size.height - 4)
+        button.frame = CGRect(origin: CGPoint(x: x, y: y), size: size)
+        if button.superview !== self || subviews.last !== button {
+            addSubview(button, positioned: .above, relativeTo: nil)
+        }
+    }
+
+    private func makeTranslateButton() -> NSButton {
+        let button = NSButton(
+            title: "Перевести",
+            image: NSImage(systemSymbolName: "character.bubble", accessibilityDescription: nil) ?? NSImage(),
+            target: self,
+            action: #selector(translateButtonClicked)
+        )
+        button.bezelStyle = .rounded
+        button.controlSize = .regular
+        button.imagePosition = .imageLeading
+        button.keyEquivalent = ""
+        translateButton = button
+        return button
+    }
+
+    @objc private func translateButtonClicked() {
+        let action = translateAction
+        hideTranslateButton()
+        action?()
+    }
+
+    private func hideTranslateButton() {
+        translateButton?.removeFromSuperview()
+        translateAction = nil
+    }
+
+    private func clearRegionSelection() {
+        hideTranslateButton()
+        marquee = nil
+    }
+
+    func textSelectionDidChange(_ overlayView: ImageAnalysisOverlayView) {
+        guard #available(macOS 14.0, *), overlayView === liveOverlay else { return }
+        let text = overlayView.selectedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard overlayView.hasActiveTextSelection, !text.isEmpty, let window else {
+            hideTranslateButton()
+            return
+        }
+        let point = convert(window.mouseLocationOutsideOfEventStream, from: nil)
+        showTranslateButton(at: point, toolTip: "Перевести выделенный текст") {
+            TranslationWindowController.shared.show(text)
+        }
     }
 
     private func applyCrop(_ rect: CGRect) {
@@ -301,7 +419,9 @@ final class CanvasView: NSView, NSTextFieldDelegate, ImageAnalysisOverlayViewDel
             finish()
             return
         case 53:
-            if state.liveText {
+            if translateButton?.superview != nil || marquee != nil {
+                clearRegionSelection()
+            } else if state.liveText {
                 state.liveText = false
             } else if selectedID != nil {
                 selectedID = nil
@@ -332,6 +452,7 @@ final class CanvasView: NSView, NSTextFieldDelegate, ImageAnalysisOverlayViewDel
 
     private func toolChanged(to tool: Tool) {
         commitText()
+        clearRegionSelection()
         state.liveText = false
         if tool != .select {
             selectedID = nil
@@ -487,6 +608,7 @@ final class CanvasView: NSView, NSTextFieldDelegate, ImageAnalysisOverlayViewDel
 
     @objc func undo(_ sender: Any?) {
         commitText()
+        clearRegionSelection()
         state.liveText = false
         guard let previous = undoStack.popLast() else { return }
         redoStack.append(Snapshot(annotations: annotations, crop: crop))
@@ -494,6 +616,7 @@ final class CanvasView: NSView, NSTextFieldDelegate, ImageAnalysisOverlayViewDel
     }
 
     @objc func redo(_ sender: Any?) {
+        clearRegionSelection()
         state.liveText = false
         guard let next = redoStack.popLast() else { return }
         undoStack.append(Snapshot(annotations: annotations, crop: crop))
