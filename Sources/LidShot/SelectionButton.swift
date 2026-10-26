@@ -13,6 +13,11 @@ final class SelectionButtonController {
     private var selectedText: String?
     private var hideTimer: Timer?
     private var pending: DispatchWorkItem?
+    private let translator: InPlaceTranslator
+
+    init(translator: InPlaceTranslator) {
+        self.translator = translator
+    }
 
     static var isEnabled: Bool {
         get { UserDefaults.standard.object(forKey: "selectionButton") as? Bool ?? true }
@@ -63,7 +68,8 @@ final class SelectionButtonController {
     }
 
     private func evaluate(at point: CGPoint) {
-        guard let app = NSWorkspace.shared.frontmostApplication,
+        guard !translator.isBusy,
+              let app = NSWorkspace.shared.frontmostApplication,
               app.processIdentifier != ProcessInfo.processInfo.processIdentifier else { return }
         let bundleID = app.bundleIdentifier ?? ""
         guard !Self.skippedApps.contains(bundleID), !Self.hiddenApps.contains(bundleID) else { return }
@@ -74,32 +80,82 @@ final class SelectionButtonController {
             let role: String = InputButtonController.attribute(focused, kAXRoleAttribute) ?? ""
             let subrole: String = InputButtonController.attribute(focused, kAXSubroleAttribute) ?? ""
             if subrole == "AXSecureTextField" { return }
-            if InputButtonController.isEditable(focused, role: role) { return }
-            if let text: String = InputButtonController.attribute(focused, kAXSelectedTextAttribute) {
-                let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !trimmed.isEmpty else { return }
-                show(at: point, text: trimmed, bundleID: bundleID)
+            let editable = InputButtonController.isEditable(focused, role: role)
+            if let text = Self.selectedText(of: focused) {
+                show(at: point, text: text, editable: editable, bundleID: bundleID)
+                return
+            }
+            if editable {
+                let selection: String? = InputButtonController.attribute(focused, kAXSelectedTextAttribute)
+                if selection == nil {
+                    show(at: point, text: nil, editable: true, bundleID: bundleID)
+                }
                 return
             }
         }
-        guard Self.hasText(at: point) else { return }
-        show(at: point, text: nil, bundleID: bundleID)
+        guard let element = Self.element(at: point) else { return }
+        if let text = Self.selectedTextAround(element) {
+            show(at: point, text: text, editable: false, bundleID: bundleID)
+            return
+        }
+        guard Self.hasText(element) else { return }
+        show(at: point, text: nil, editable: false, bundleID: bundleID)
     }
 
-    private static func hasText(at point: CGPoint) -> Bool {
+    private static func selectedText(of element: AXUIElement) -> String? {
+        guard let text: String = InputButtonController.attribute(element, kAXSelectedTextAttribute) else { return nil }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private static func element(at point: CGPoint) -> AXUIElement? {
         let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
         var element: AXUIElement?
         guard AXUIElementCopyElementAtPosition(
             AXUIElementCreateSystemWide(), Float(point.x), Float(primaryHeight - point.y), &element
-        ) == .success, let element else { return false }
-        let role: String = InputButtonController.attribute(element, kAXRoleAttribute) ?? ""
-        return textRoles.contains(role)
+        ) == .success else { return nil }
+        return element
     }
 
-    private func show(at point: CGPoint, text: String?, bundleID: String) {
+    private static func ancestors(of element: AXUIElement, limit: Int) -> [AXUIElement] {
+        var chain = [element]
+        var current = element
+        while chain.count <= limit, let parent: AXUIElement = InputButtonController.attribute(current, kAXParentAttribute) {
+            let role: String = InputButtonController.attribute(parent, kAXRoleAttribute) ?? ""
+            if role == "AXWindow" || role == "AXApplication" { break }
+            chain.append(parent)
+            current = parent
+        }
+        return chain
+    }
+
+    private static func selectedTextAround(_ element: AXUIElement) -> String? {
+        for candidate in ancestors(of: element, limit: 12) {
+            if let text = selectedText(of: candidate) { return text }
+        }
+        return nil
+    }
+
+    private static func hasText(_ element: AXUIElement) -> Bool {
+        for candidate in ancestors(of: element, limit: 3) {
+            let role: String = InputButtonController.attribute(candidate, kAXRoleAttribute) ?? ""
+            if textRoles.contains(role) { return true }
+            if role == "AXGroup" || role == "AXCell" || role == "AXRow" {
+                let children: [AXUIElement] = InputButtonController.attribute(candidate, kAXChildrenAttribute) ?? []
+                let hasStaticText = children.prefix(20).contains {
+                    (InputButtonController.attribute($0, kAXRoleAttribute) as String?) == "AXStaticText"
+                }
+                if hasStaticText { return true }
+            }
+        }
+        return false
+    }
+
+    private func show(at point: CGPoint, text: String?, editable: Bool, bundleID: String) {
         selectedText = text
         let panel = panel ?? makePanel()
         panel.bundleID = bundleID
+        panel.setReplaceVisible(editable)
         panel.setWorking(false)
         let size = panel.frame.size
         var origin = CGPoint(x: point.x + 6, y: point.y - size.height - 6)
@@ -134,8 +190,12 @@ final class SelectionButtonController {
     }
 
     private func makePanel() -> InputButtonPanel {
-        let panel = InputButtonPanel(toolTip: "Перевести выделенный текст (правый клик — скрыть для приложения)")
+        let panel = InputButtonPanel(
+            toolTip: "Перевести выделенный текст (правый клик — скрыть для приложения)",
+            replaceToolTip: "Перевести и заменить выделенный текст (русский ↔ английский)"
+        )
         panel.onClick = { [weak self] in self?.translate() }
+        panel.onReplace = { [weak self] in self?.translateAndReplace() }
         panel.onHideForApp = { [weak self] bundleID in
             Self.hiddenApps.insert(bundleID)
             self?.hide()
@@ -161,6 +221,12 @@ final class SelectionButtonController {
             }
             TranslationWindowController.shared.show(text)
         }
+    }
+
+    private func translateAndReplace() {
+        guard !translator.isBusy else { return }
+        panel?.setWorking(true)
+        translator.run(waitForModifiers: false) { [weak self] in self?.hide() }
     }
 
     private func copySelection(_ completion: @escaping (String?) -> Void) {

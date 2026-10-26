@@ -11,7 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let copyTwice = CopyTwiceWatcher()
     private let inPlace = InPlaceTranslator()
     private lazy var inputButton = InputButtonController(translator: inPlace)
-    private let selectionButton = SelectionButtonController()
+    private lazy var selectionButton = SelectionButtonController(translator: inPlace)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = Self.makeMainMenu()

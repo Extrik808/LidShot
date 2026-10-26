@@ -187,16 +187,21 @@ final class InputButtonController {
 
 final class InputButtonPanel: NSPanel {
     var onClick: (() -> Void)?
+    var onReplace: (() -> Void)?
     var onHideForApp: ((String) -> Void)?
     var bundleID = ""
 
+    private static let side: CGFloat = 28
+    private let background = NSVisualEffectView()
     private let button = HoverButton()
+    private let replaceButton = HoverButton()
     private let spinner = NSProgressIndicator()
+    private var showsReplace = false
 
     var isMouseInside: Bool { NSMouseInRect(NSEvent.mouseLocation, frame, false) }
 
-    init(toolTip: String) {
-        let size = CGSize(width: 28, height: 28)
+    init(toolTip: String, replaceToolTip: String? = nil) {
+        let size = CGSize(width: Self.side, height: Self.side)
         super.init(contentRect: CGRect(origin: .zero, size: size), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         isOpaque = false
         backgroundColor = .clear
@@ -207,31 +212,51 @@ final class InputButtonPanel: NSPanel {
         isReleasedWhenClosed = false
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient, .ignoresCycle]
 
-        let background = NSVisualEffectView(frame: CGRect(origin: .zero, size: size))
+        background.frame = CGRect(origin: .zero, size: size)
         background.material = .popover
         background.state = .active
         background.wantsLayer = true
-        background.layer?.cornerRadius = size.width / 2
+        background.layer?.cornerRadius = Self.side / 2
         background.layer?.masksToBounds = true
 
-        button.frame = background.bounds
-        button.isBordered = false
-        button.image = NSImage(systemSymbolName: "character.bubble", accessibilityDescription: "Перевести")
-        button.contentTintColor = .controlAccentColor
-        button.imageScaling = .scaleProportionallyDown
-        button.toolTip = toolTip
-        button.target = self
-        button.action = #selector(clicked)
-        button.onRightClick = { [weak self] in self?.showMenu() }
+        configure(button, symbol: "character.bubble", description: "Перевести", toolTip: toolTip, action: #selector(clicked))
+        button.frame = CGRect(origin: .zero, size: size)
+        background.addSubview(button)
+
+        if let replaceToolTip {
+            configure(replaceButton, symbol: "character.cursor.ibeam", description: "Перевести и заменить", toolTip: replaceToolTip, action: #selector(replaceClicked))
+            replaceButton.frame = CGRect(x: Self.side, y: 0, width: Self.side, height: Self.side)
+            replaceButton.isHidden = true
+            background.addSubview(replaceButton)
+        }
 
         spinner.style = .spinning
         spinner.controlSize = .small
         spinner.frame = background.bounds.insetBy(dx: 6, dy: 6)
         spinner.isHidden = true
 
-        background.addSubview(button)
         background.addSubview(spinner)
         contentView = background
+    }
+
+    private func configure(_ target: HoverButton, symbol: String, description: String, toolTip: String, action: Selector) {
+        target.isBordered = false
+        target.image = NSImage(systemSymbolName: symbol, accessibilityDescription: description)
+        target.contentTintColor = .controlAccentColor
+        target.imageScaling = .scaleProportionallyDown
+        target.toolTip = toolTip
+        target.target = self
+        target.action = action
+        target.onRightClick = { [weak self] in self?.showMenu() }
+    }
+
+    func setReplaceVisible(_ visible: Bool) {
+        showsReplace = visible && onReplace != nil
+        replaceButton.isHidden = !showsReplace
+        let width = showsReplace ? Self.side * 2 : Self.side
+        setContentSize(CGSize(width: width, height: Self.side))
+        background.frame = CGRect(x: 0, y: 0, width: width, height: Self.side)
+        spinner.frame = CGRect(x: (width - Self.side) / 2, y: 0, width: Self.side, height: Self.side).insetBy(dx: 6, dy: 6)
     }
 
     override var canBecomeKey: Bool { false }
@@ -240,6 +265,7 @@ final class InputButtonPanel: NSPanel {
 
     func setWorking(_ working: Bool) {
         button.isHidden = working
+        replaceButton.isHidden = working || !showsReplace
         spinner.isHidden = !working
         if working {
             spinner.startAnimation(nil)
@@ -252,11 +278,20 @@ final class InputButtonPanel: NSPanel {
         onClick?()
     }
 
+    @objc private func replaceClicked() {
+        onReplace?()
+    }
+
     private func showMenu() {
         let menu = NSMenu()
         let translate = NSMenuItem(title: "Перевести", action: #selector(clicked), keyEquivalent: "")
         translate.target = self
         menu.addItem(translate)
+        if showsReplace {
+            let replace = NSMenuItem(title: "Перевести и заменить", action: #selector(replaceClicked), keyEquivalent: "")
+            replace.target = self
+            menu.addItem(replace)
+        }
         let hideItem = NSMenuItem(title: "Не показывать в этом приложении", action: #selector(hideForApp), keyEquivalent: "")
         hideItem.target = self
         menu.addItem(hideItem)
